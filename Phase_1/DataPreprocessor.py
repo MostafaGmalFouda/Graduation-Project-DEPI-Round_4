@@ -82,25 +82,37 @@ class DataPreprocessor:
     #     return self.data
     
 
-    def convert_types(self, schema: dict) -> pd.DataFrame:
+    def convert_types(self, schema: dict = None) -> pd.DataFrame:
         """
         Converts columns to appropriate types. If no schema is provided,
         it tries to infer types automatically (like converting strings to dates).
         schema: A dictionary mapping column names to desired data types (e.g., {'date_col': 'datetime', 'num_col': 'float'}).
         """
+        # 1. cleaning string columns (trimming whitespace)
+        for col in self.data.select_dtypes(include=['object']).columns:
+            self.data[col] = self.data[col].astype(str).str.strip()
+
+        # 2. schema-based conversion
         if schema:
             for col, dtype in schema.items():
                 if col in self.data.columns:
                     self.data[col] = self.data[col].astype(dtype)
-        else:
-            # Try to convert object columns to datetime if possible
-            for col in self.data.columns:
-                if self.data[col].dtype == 'object':
-                    try:
-                        self.data[col] = pd.to_datetime(self.data[col])
-                        print(f"Automatically converted '{col}' to datetime.")
-                    except:
-                        pass # Leave as is if not a date
+        
+        # 3. automatic conversion (simple AI)
+        for col in self.data.columns:
+            # convert date-like strings to datetime
+            if self.data[col].dtype == 'object':
+                try:
+                    self.data[col] = pd.to_datetime(self.data[col])
+                    continue 
+                except:
+                    pass
+            
+            # reduce memory usage (Downcasting) for numbers
+            if self.data[col].dtype in ['int64', 'float64']:
+                self.data[col] = pd.to_numeric(self.data[col], downcast='integer' if 'int' in str(self.data[col].dtype) else 'float')
+
+        print("Advanced type conversion and memory optimization completed.")
         return self.data
 
 
