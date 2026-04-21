@@ -1,0 +1,89 @@
+<html>
+<head>
+    <title>EDA Report</title>
+
+    <style>
+        body {
+            font-family: Arial;
+            margin: 40px;
+            background-color: #f5f7fa;
+        }
+
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+        }
+
+        h2 {
+            color: #34495e;
+            margin-top: 30px;
+        }
+
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+
+        .insight {
+            background: #eafaf1;
+            padding: 10px;
+            border-left: 5px solid #2ecc71;
+            margin-bottom: 15px;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+
+        th {
+            background-color: #3498db;
+            color: white;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+    </style>
+</head>
+
+<body>
+
+<h1>📊 EDA Report</h1>
+
+<div class="card">
+    <h2>📌 Overview</h2>
+    <p>This report provides a basic analysis of the dataset.</p>
+</div>
+
+<div class="card">
+    <h2>📊 Summary Statistics</h2>
+    {{ summary | safe }}
+</div>
+
+<div class="card">
+    <h2>❗ Missing Values</h2>
+
+    <div class="insight">
+        🔍 Column with most missing: <b>{{ top_missing }}</b> ({{ top_missing_val }})
+    </div>
+
+    {{ missing | safe }}
+</div>
+
+<div class="card">
+    <h2>🔗 Correlation Matrix</h2>
+    {{ correlation | safe }}
+</div>
+
+</body>
+</html>
