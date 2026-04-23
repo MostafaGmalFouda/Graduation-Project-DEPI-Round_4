@@ -1,5 +1,4 @@
 import pandas as pd
-
 class DataPreprocessor:
     """
     A class to preprocess data including handling nulls, converting types,
@@ -133,10 +132,10 @@ class DataPreprocessor:
         Delegates outlier handling to the OutlierHandler class.
         Uses the 'Capping' method by default as it's the safest for automation.
         """
-        from OutlierHandler import OutlierHandler # Importing class here to avoid circular dependency if OutlierHandler also imports DataPreprocessor
+        from Phase_1.OutlierHandler import OutlierHandler # Importing class here to avoid circular dependency if OutlierHandler also imports DataPreprocessor
         
         handler = OutlierHandler(self.data)
-        self.data = handler.cap_outliers() # Capping (IQR)
+        self.data = handler.cap_outliers('iqr') # Capping (IQR)
         print("Outliers handled automatically via OutlierHandler.")
         return self.data
 
