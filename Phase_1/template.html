@@ -31,7 +31,14 @@
             background: #eafaf1;
             padding: 10px;
             border-left: 5px solid #2ecc71;
-            margin-bottom: 15px;
+            margin-bottom: 10px;
+        }
+
+        .warning {
+            background: #fff3cd;
+            padding: 10px;
+            border-left: 5px solid #f1c40f;
+            margin-bottom: 10px;
         }
 
         table {
@@ -53,6 +60,22 @@
         tr:nth-child(even) {
             background-color: #f2f2f2;
         }
+
+        .overview-box {
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+        }
+
+        .box {
+            flex: 1;
+            min-width: 200px;
+            margin: 10px;
+            padding: 15px;
+            background: #ecf0f1;
+            border-radius: 8px;
+            text-align: center;
+        }
     </style>
 </head>
 
@@ -60,29 +83,63 @@
 
 <h1>📊 EDA Report</h1>
 
+<!-- OVERVIEW -->
 <div class="card">
-    <h2>📌 Overview</h2>
-    <p>This report provides a basic analysis of the dataset.</p>
+    <h2>📌 Dataset Overview</h2>
+
+    <div class="overview-box">
+        <div class="box">
+            <b>Rows</b><br>
+            {{ shape[0] }}
+        </div>
+
+        <div class="box">
+            <b>Columns</b><br>
+            {{ shape[1] }}
+        </div>
+
+        <div class="box">
+            <b>Total Missing</b><br>
+            {{ total_missing }}
+        </div>
+
+        <div class="box">
+            <b>Duplicates</b><br>
+            {{ duplicates }}
+        </div>
+    </div>
 </div>
 
+<!-- SUMMARY -->
 <div class="card">
     <h2>📊 Summary Statistics</h2>
     {{ summary | safe }}
 </div>
 
+<!-- MISSING VALUES -->
 <div class="card">
-    <h2>❗ Missing Values</h2>
+    <h2>❗ Missing Values Analysis</h2>
 
-    <div class="insight">
-        🔍 Column with most missing: <b>{{ top_missing }}</b> ({{ top_missing_val }})
+    <div class="warning">
+        🔍 Column with most missing: <b>{{ top_missing }}</b> ({{ top_missing_val }}%)
     </div>
 
     {{ missing | safe }}
 </div>
 
+<!-- CORRELATION -->
 <div class="card">
     <h2>🔗 Correlation Matrix</h2>
     {{ correlation | safe }}
+</div>
+
+<!-- INSIGHTS -->
+<div class="card">
+    <h2>💡 Key Insights</h2>
+
+    {% for i in insights %}
+        <div class="insight">✔ {{ i }}</div>
+    {% endfor %}
 </div>
 
 </body>

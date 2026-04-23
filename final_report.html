@@ -31,7 +31,14 @@
             background: #eafaf1;
             padding: 10px;
             border-left: 5px solid #2ecc71;
-            margin-bottom: 15px;
+            margin-bottom: 10px;
+        }
+
+        .warning {
+            background: #fff3cd;
+            padding: 10px;
+            border-left: 5px solid #f1c40f;
+            margin-bottom: 10px;
         }
 
         table {
@@ -53,6 +60,22 @@
         tr:nth-child(even) {
             background-color: #f2f2f2;
         }
+
+        .overview-box {
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+        }
+
+        .box {
+            flex: 1;
+            min-width: 200px;
+            margin: 10px;
+            padding: 15px;
+            background: #ecf0f1;
+            border-radius: 8px;
+            text-align: center;
+        }
     </style>
 </head>
 
@@ -60,11 +83,34 @@
 
 <h1>📊 EDA Report</h1>
 
+<!-- OVERVIEW -->
 <div class="card">
-    <h2>📌 Overview</h2>
-    <p>This report provides a basic analysis of the dataset.</p>
+    <h2>📌 Dataset Overview</h2>
+
+    <div class="overview-box">
+        <div class="box">
+            <b>Rows</b><br>
+            891
+        </div>
+
+        <div class="box">
+            <b>Columns</b><br>
+            12
+        </div>
+
+        <div class="box">
+            <b>Total Missing</b><br>
+            866
+        </div>
+
+        <div class="box">
+            <b>Duplicates</b><br>
+            0
+        </div>
+    </div>
 </div>
 
+<!-- SUMMARY -->
 <div class="card">
     <h2>📊 Summary Statistics</h2>
     <table border="1" class="dataframe">
@@ -165,73 +211,88 @@
 </table>
 </div>
 
+<!-- MISSING VALUES -->
 <div class="card">
-    <h2>❗ Missing Values</h2>
+    <h2>❗ Missing Values Analysis</h2>
 
-    <div class="insight">
-        🔍 Column with most missing: <b>Cabin</b> (687)
+    <div class="warning">
+        🔍 Column with most missing: <b>Cabin</b> (77.10437710437711%)
     </div>
 
     <table border="1" class="dataframe">
   <thead>
     <tr style="text-align: right;">
       <th></th>
-      <th>Missing Values</th>
+      <th>Missing Count</th>
+      <th>Percentage (%)</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <th>PassengerId</th>
       <td>0</td>
+      <td>0.000000</td>
     </tr>
     <tr>
       <th>Survived</th>
       <td>0</td>
+      <td>0.000000</td>
     </tr>
     <tr>
       <th>Pclass</th>
       <td>0</td>
+      <td>0.000000</td>
     </tr>
     <tr>
       <th>Name</th>
       <td>0</td>
+      <td>0.000000</td>
     </tr>
     <tr>
       <th>Sex</th>
       <td>0</td>
+      <td>0.000000</td>
     </tr>
     <tr>
       <th>Age</th>
       <td>177</td>
+      <td>19.865320</td>
     </tr>
     <tr>
       <th>SibSp</th>
       <td>0</td>
+      <td>0.000000</td>
     </tr>
     <tr>
       <th>Parch</th>
       <td>0</td>
+      <td>0.000000</td>
     </tr>
     <tr>
       <th>Ticket</th>
       <td>0</td>
+      <td>0.000000</td>
     </tr>
     <tr>
       <th>Fare</th>
       <td>0</td>
+      <td>0.000000</td>
     </tr>
     <tr>
       <th>Cabin</th>
       <td>687</td>
+      <td>77.104377</td>
     </tr>
     <tr>
       <th>Embarked</th>
       <td>2</td>
+      <td>0.224467</td>
     </tr>
   </tbody>
 </table>
 </div>
 
+<!-- CORRELATION -->
 <div class="card">
     <h2>🔗 Correlation Matrix</h2>
     <table border="1" class="dataframe">
@@ -320,6 +381,19 @@
     </tr>
   </tbody>
 </table>
+</div>
+
+<!-- INSIGHTS -->
+<div class="card">
+    <h2>💡 Key Insights</h2>
+
+    
+        <div class="insight">✔ Column 'Age' has 19.87% missing values</div>
+    
+        <div class="insight">✔ Column 'Cabin' has 77.10% missing values</div>
+    
+        <div class="insight">✔ Column 'Embarked' has 0.22% missing values</div>
+    
 </div>
 
 </body>
