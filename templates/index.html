@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BRight | AI Data Hub</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://cdn.jsdelivr.net/gh/michalsnik/aos@2.3.1/dist/aos.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body style="overflow: hidden;">
+
+    <div id="intro-screen">
+        <div class="nebula-bg">
+            <div class="orb orb-1"></div>
+            <div class="orb orb-2"></div>
+            <div class="orb orb-3"></div>
+        </div>
+
+        <div class="cyber-grid"></div>
+
+        <div class="intro-content">
+            <div class="intro-logo-container">
+                <h1 class="intro-logo">BRight <span>AI</span></h1>
+                <div class="logo-shine"></div>
+            </div>
+
+            <div class="loader-v2">
+                <div class="progress-wrapper">
+                    <div class="progress-line"></div>
+                </div>
+                <div class="status-scanner">
+                    <span class="status-text">SYSTEM BOOTING...</span>
+                    <span class="percentage" id="load-pc">0%</span>
+                </div>
+            </div>
+        </div>
+    </div>
+          <div id="error-message" class="error-message" style="display: none;"></div>
+
+    <div id="main-app" class="app-stage" style="display: none; opacity: 0;" data-aos="fade-up" data-aos-duration="1000">
+        <header class="hero-section">
+            <div class="logo-top">BRight <span>AI</span></div>
+            <p>Intelligence Redefined for Your Datasets</p>
+        </header>
+
+        
+
+        <form id="main-ai-form" class="main-layout" enctype="multipart/form-data">
+
+            <div class="glass-card browse-card">
+                <div class="card-header cyan-glow">DATA SOURCE</div>
+                <div class="browse-content">
+                    <div class="mini-icon">
+                        <i class="fas fa-file-upload"></i>
+                    </div>
+                    <p id="file-status">Select Data File (CSV/Excel)</p>
+                    <input type="file" id="real-file" name="file" hidden accept=".csv, .xlsx, .xls">
+                    <button type="button" class="action-btn cyan-btn"
+                        onclick="document.getElementById('real-file').click()">
+                        <i class="fas fa-search"></i> Browse
+                    </button>
+                </div>
+            </div>
+
+            <div class="processing-hub">
+                <div class="ai-circle">
+                    <i class="fas fa-microchip"></i>
+                    <div class="orbit orbit-p"></div>
+                    <div class="orbit orbit-c"></div>
+                </div>
+                <div class="status-label">Engine Ready</div>
+            </div>
+
+            <div class="glass-card config-card">
+                <div class="card-header purple-glow">Dataset Preview</div>
+
+                <div class="field-group">
+                    <label>Data Inspection</label>
+                    <select name="action_type">
+                        <option value="summary">Basic Insight Report</option>
+                        <option value="predict">Detailed Report</option>
+                    </select>
+                </div>
+
+                <button type="submit" class="submit-btn purple-btn" id="start-btn">
+                    <i class="fas fa-bolt"></i> START ENGINE
+                </button>
+            </div>
+        </form>
+
+        <div id="results-area" class="glass-card result-container" style="display: none;">
+            <div class="card-header cyan-glow">ANALYSIS PREVIEW</div>
+
+            <div class="stats-bar">
+                <i class="fas fa-table"></i> <span id="res-rows">Rows: 0</span> |
+                <i class="fas fa-columns"></i> <span id="res-cols">Cols: 0</span>
+            </div>
+
+            <div id="table-preview" class="table-scroll"></div>
+
+            <div class="action-footer">
+                <a href="#" id="view-btn" target="_blank" class="action-btn cyan-btn">
+                    <i class="fas fa-eye"></i> View Report
+                </a>
+
+                <a href="#" id="download-btn" class="action-btn purple-btn">
+                    <i class="fas fa-download"></i> Download Report
+                </a>
+            </div>
+        </div>
+
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/gh/michalsnik/aos@2.3.1/dist/aos.js"></script>
+
+    <script>
+        AOS.init();
+
+        const fileInput = document.getElementById('real-file');
+        const fileStatus = document.getElementById('file-status');
+        const statusLabel = document.querySelector('.status-label');
+        const startBtn = document.getElementById('start-btn');
+        const resultsArea = document.getElementById('results-area');
+        const errorBox = document.getElementById('error-message');
+
+        window.addEventListener('load', () => {
+            const introDuration = 4500;
+            const intro = document.getElementById('intro-screen');
+            const mainApp = document.getElementById('main-app');
+            const counterElement = document.getElementById('load-pc');
+
+            let count = 0;
+            const loaderInterval = setInterval(() => {
+                count++;
+                if (counterElement) counterElement.innerText = count + "%";
+                if (count === 100) clearInterval(loaderInterval);
+            }, 38);
+
+            setTimeout(() => {
+                intro.style.opacity = '0';
+                intro.style.transform = 'scale(1.1)';
+
+                mainApp.style.display = 'block';
+
+                setTimeout(() => {
+                    mainApp.style.opacity = '1';
+                    document.body.style.overflow = 'auto';
+                    intro.remove();
+                    AOS.refresh();
+                }, 100);
+            }, introDuration);
+        });
+
+        fileInput.onchange = () => {
+            errorBox.style.display = "none";
+            errorBox.innerText = "";
+
+            if (fileInput.files.length > 0) {
+                fileStatus.innerText = "Selected: " + fileInput.files[0].name;
+                fileStatus.style.color = "#14ffd0";
+            } else {
+                fileStatus.innerText = "Select Data File (CSV/Excel)";
+                fileStatus.style.color = "";
+            }
+        };
+
+        document.getElementById('main-ai-form').onsubmit = async (e) => {
+            e.preventDefault();
+
+            errorBox.style.display = "none";
+            errorBox.innerText = "";
+
+            if (!fileInput.files.length) {
+                errorBox.innerText = "Please select a file first";
+                errorBox.style.display = "block";
+                return;
+            }
+
+            statusLabel.innerText = "Processing Data Pipeline...";
+            statusLabel.style.color = "#a333ff";
+            startBtn.disabled = true;
+            resultsArea.style.display = 'none';
+
+            const formData = new FormData(e.target);
+
+            try {
+                const response = await fetch('/process', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+                console.log(result);
+
+                if (result.status === "success") {
+
+                    errorBox.style.display = "none";
+
+                    statusLabel.innerText = "Process Complete!";
+                    statusLabel.style.color = "#14ffd0";
+
+                    resultsArea.style.display = 'block';
+                    document.getElementById('table-preview').innerHTML = result.preview;
+                    document.getElementById('res-rows').innerText = "Rows: " + result.rows;
+                    document.getElementById('res-cols').innerText = "Cols: " + result.cols;
+
+                    document.getElementById('view-btn').href = result.view_url;
+                    document.getElementById('download-btn').href = result.download_url;
+
+                    window.scrollTo({
+                        top: resultsArea.offsetTop - 50,
+                        behavior: 'smooth'
+                    });
+
+                } else {
+                    statusLabel.innerText = "Engine Error";
+                    statusLabel.style.color = "#ff4b2b";
+                    errorBox.innerText = result.message;
+                    errorBox.style.display = "block";
+                }
+
+            } catch (err) {
+                console.error(err);
+                statusLabel.innerText = "Connection Error";
+                statusLabel.style.color = "#ff4b2b";
+            } finally {
+                startBtn.disabled = false;
+            }
+        };
+    </script>
+</body>
+</html>

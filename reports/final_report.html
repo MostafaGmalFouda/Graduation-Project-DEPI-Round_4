@@ -1,0 +1,232 @@
+<html>
+<head>
+    <title>EDA Report</title>
+
+    <style>
+        body {
+            font-family: Arial;
+            margin: 40px;
+            background-color: #f5f7fa;
+        }
+
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+        }
+
+        h2 {
+            color: #34495e;
+            margin-top: 30px;
+        }
+
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+
+        .insight {
+            background: #eafaf1;
+            padding: 10px;
+            border-left: 5px solid #2ecc71;
+            margin-bottom: 10px;
+        }
+
+        .warning {
+            background: #fff3cd;
+            padding: 10px;
+            border-left: 5px solid #f1c40f;
+            margin-bottom: 10px;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+
+        th {
+            background-color: #3498db;
+            color: white;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+
+        .overview-box {
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+        }
+
+        .box {
+            flex: 1;
+            min-width: 200px;
+            margin: 10px;
+            padding: 15px;
+            background: #ecf0f1;
+            border-radius: 8px;
+            text-align: center;
+        }
+    </style>
+</head>
+
+<body>
+
+<h1>📊 EDA Report</h1>
+
+<!-- OVERVIEW -->
+<div class="card">
+    <h2>📌 Dataset Overview</h2>
+
+    <div class="overview-box">
+        <div class="box">
+            <b>Rows</b><br>
+            14
+        </div>
+
+        <div class="box">
+            <b>Columns</b><br>
+            5
+        </div>
+
+        <div class="box">
+            <b>Total Missing</b><br>
+            0
+        </div>
+
+        <div class="box">
+            <b>Duplicates</b><br>
+            0
+        </div>
+    </div>
+</div>
+
+<!-- SUMMARY -->
+<div class="card">
+    <h2>📊 Summary Statistics</h2>
+    <table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>Outlook</th>
+      <th>Temperature</th>
+      <th>Humidity</th>
+      <th>Wind</th>
+      <th>Play Tennis</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>count</th>
+      <td>14</td>
+      <td>14</td>
+      <td>14</td>
+      <td>14</td>
+      <td>14</td>
+    </tr>
+    <tr>
+      <th>unique</th>
+      <td>3</td>
+      <td>3</td>
+      <td>2</td>
+      <td>2</td>
+      <td>2</td>
+    </tr>
+    <tr>
+      <th>top</th>
+      <td>Sunny</td>
+      <td>Mild</td>
+      <td>High</td>
+      <td>Weak</td>
+      <td>Yes</td>
+    </tr>
+    <tr>
+      <th>freq</th>
+      <td>5</td>
+      <td>6</td>
+      <td>7</td>
+      <td>8</td>
+      <td>9</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<!-- MISSING VALUES -->
+<div class="card">
+    <h2>❗ Missing Values Analysis</h2>
+
+    <div class="warning">
+        🔍 Column with most missing: <b>Outlook</b> (0.0%)
+    </div>
+
+    <table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>Missing Count</th>
+      <th>Percentage (%)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>Outlook</th>
+      <td>0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>Temperature</th>
+      <td>0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>Humidity</th>
+      <td>0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>Wind</th>
+      <td>0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>Play Tennis</th>
+      <td>0</td>
+      <td>0.0</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<!-- CORRELATION -->
+<div class="card">
+    <h2>🔗 Correlation Matrix</h2>
+    <table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+  </tbody>
+</table>
+</div>
+
+<!-- INSIGHTS -->
+<div class="card">
+    <h2>💡 Key Insights</h2>
+
+    
+</div>
+
+</body>
+</html>
