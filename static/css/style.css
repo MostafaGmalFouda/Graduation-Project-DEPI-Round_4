@@ -297,7 +297,7 @@ select:hover { border-color: var(--neon-p); background: rgba(13, 12, 12, 0.5); }
     display: none;
     position: fixed;
     top: 20px; 
-    left: 45%;
+    left: 46.5%;
     transform: translateX(-50%);
     z-index: 9999;
 
@@ -388,7 +388,7 @@ select:hover { border-color: var(--neon-p); background: rgba(13, 12, 12, 0.5); }
 .progress-line {
     width: 0%; height: 100%; background: var(--neon-c);
     box-shadow: 0 0 20px var(--neon-c);
-    animation: fillProgress 4s cubic-bezier(0.1, 0, 0.4, 1) forwards;
+    animation: fillProgress 5.8s cubic-bezier(0.1, 0, 0.4, 1) forwards;
 }
 
 .status-scanner {
@@ -400,4 +400,49 @@ select:hover { border-color: var(--neon-p); background: rgba(13, 12, 12, 0.5); }
 @keyframes fillProgress {
     0% { width: 0%; }
     100% { width: 100%; }
+}
+
+.stream-wrapper{
+    position: relative;
+    width: fit-content;
+    margin: 30px auto;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+
+#stream-btn{
+    display: none; 
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    position: relative;
+    z-index: 2;
+}
+
+.ring{
+    padding-bottom: 30px;
+    padding-top: 30px;
+    position: absolute;
+    width: 190px;
+    height: 190px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    border-top: 2px solid #14ffd0;
+    border-right: 2px solid #a333ff;
+    animation: spin 1.4s linear infinite;
+    opacity: 0;
+    transition: 0.3s;
+}
+
+
+.stream-wrapper.loading .ring{
+    opacity: 1;
+}
+
+
+@keyframes spin{
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }

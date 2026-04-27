@@ -169,9 +169,9 @@ class  ReportGenerator:
         }
 
         
-        template_path = os.path.join(self.BASE_DIR, "template.html")
+        template_path = os.path.join(self.BASE_DIR,"template.html")
         PROJECT_ROOT = os.path.abspath(os.path.join(self.BASE_DIR, os.pardir))
-        output_path = os.path.join(PROJECT_ROOT, "final_report.html")         
+        output_path = os.path.join(PROJECT_ROOT, "reports", "final_report.html")       
         # check
         print("template exists:", os.path.exists(template_path))
         

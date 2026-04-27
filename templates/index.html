@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link href="https://cdn.jsdelivr.net/gh/michalsnik/aos@2.3.1/dist/aos.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/pipeline_style.css') }}">
 </head>
 
 <body style="overflow: hidden;">
@@ -40,7 +41,7 @@
             </div>
         </div>
     </div>
-          <div id="error-message" class="error-message" style="display: none;"></div>
+    <div id="error-message" class="error-message" style="display: none;"></div>
 
     <div id="main-app" class="app-stage" style="display: none; opacity: 0;" data-aos="fade-up" data-aos-duration="1000">
         <header class="hero-section">
@@ -48,7 +49,7 @@
             <p>Intelligence Redefined for Your Datasets</p>
         </header>
 
-        
+
 
         <form id="main-ai-form" class="main-layout" enctype="multipart/form-data">
 
@@ -115,47 +116,86 @@
         </div>
 
     </div>
+    <div id="results-area" class="glass-card result-container" style="display: none;">
+    </div>
+
+    <div id="results-area" class="glass-card result-container" style="display: none;">
+        <div class="card-header cyan-glow">INITIAL PREVIEW</div>
+        <div id="table-preview" class="table-scroll"></div>
+        <div class="action-footer">
+            <a href="#" id="view-btn" target="_blank" class="action-btn cyan-btn">View Preview</a>
+            <a href="#" id="download-btn" class="action-btn purple-btn">Download Preview</a>
+        </div>
+    </div>
+
+    <div id="pipeline-dashboard" class="pipeline-dashboard-grid" style="display: none; margin-top: 30px;">
+        <div class="pipeline-stages-side">
+            <div id="pipeline-stages-container"></div>
+        </div>
+        <div class="pipeline-logs-side">
+            <div id="pipeline-console" class="log-console"></div>
+        </div>
+    </div>
+<div id="pipeline-results" class="glass-card result-container final-report-card" style="display: none;">
+    <div class="card-header purple-glow">REPORT DEPLOYED</div>
+    
+    <div class="stats-bar">
+        <i class="fas fa-check-circle" style="color: var(--neon-c);"></i>
+        <span id="pipe-res-stats">Engine Analysis Complete</span>
+    </div>
+
+    <div class="action-footer">
+        <a id="pipe-view-btn" href="#" target="_blank" class="action-btn cyan-btn">
+            <i class="fas fa-eye"></i> VIEW
+        </a>
+        <a id="pipe-download-btn" href="#" download class="action-btn purple-btn">
+            <i class="fas fa-download"></i> DOWNLOAD
+        </a>
+    </div>
+</div>
+
+    <div class="stream-wrapper">
+        <button type="button" id="stream-btn" class="action-btn purple-btn" style="display: none; margin-top:20px;">
+            LIVE PIPELINE
+        </button>
+        <div class="ring"></div>
+    </div>
 
     <script src="https://cdn.jsdelivr.net/gh/michalsnik/aos@2.3.1/dist/aos.js"></script>
-
+    <script src="{{ url_for('static', filename='scripts/pipeline_logic.js') }}"></script>
     <script>
         AOS.init();
-
         const fileInput = document.getElementById('real-file');
         const fileStatus = document.getElementById('file-status');
         const statusLabel = document.querySelector('.status-label');
         const startBtn = document.getElementById('start-btn');
         const resultsArea = document.getElementById('results-area');
         const errorBox = document.getElementById('error-message');
+        const streamBtn = document.getElementById('stream-btn');
+        const streamWrapper = document.querySelector('.stream-wrapper');
+        const dashboard = document.getElementById('pipeline-dashboard');
 
+        // 1. Intro Screen
         window.addEventListener('load', () => {
-            const introDuration = 4500;
-            const intro = document.getElementById('intro-screen');
-            const mainApp = document.getElementById('main-app');
             const counterElement = document.getElementById('load-pc');
-
             let count = 0;
             const loaderInterval = setInterval(() => {
                 count++;
                 if (counterElement) counterElement.innerText = count + "%";
                 if (count === 100) clearInterval(loaderInterval);
             }, 38);
-
             setTimeout(() => {
-                intro.style.opacity = '0';
-                intro.style.transform = 'scale(1.1)';
-
-                mainApp.style.display = 'block';
-
+                document.getElementById('intro-screen').style.opacity = '0';
+                document.getElementById('main-app').style.display = 'block';
                 setTimeout(() => {
-                    mainApp.style.opacity = '1';
+                    document.getElementById('main-app').style.opacity = '1';
                     document.body.style.overflow = 'auto';
-                    intro.remove();
-                    AOS.refresh();
+                    document.getElementById('intro-screen').remove();
                 }, 100);
-            }, introDuration);
+            }, 4500);
         });
 
+        
         fileInput.onchange = () => {
             errorBox.style.display = "none";
             errorBox.innerText = "";
@@ -163,75 +203,207 @@
             if (fileInput.files.length > 0) {
                 fileStatus.innerText = "Selected: " + fileInput.files[0].name;
                 fileStatus.style.color = "#14ffd0";
+
+                
+                resultsArea.style.display = "none";
+
+                
+                const dashboard = document.getElementById('pipeline-dashboard');
+                if (dashboard) dashboard.style.display = "none";
+
+                
+                const pipeResults = document.getElementById('pipeline-results');
+                if (pipeResults) pipeResults.style.display = "none";
+
+              
+                streamBtn.style.display = "none";
+                streamBtn.disabled = false;
+                streamBtn.innerText = "LIVE PIPELINE";
+                streamWrapper.classList.remove('loading');
+                statusLabel.innerText = "ENGINE READY"; 
+                statusLabel.style.color = "var(--neon-c)";
+                
+                if (typeof resetPipeline === 'function') resetPipeline();
+
             } else {
                 fileStatus.innerText = "Select Data File (CSV/Excel)";
                 fileStatus.style.color = "";
             }
         };
 
+
+        // 3. START ENGINE (Preview)
         document.getElementById('main-ai-form').onsubmit = async (e) => {
             e.preventDefault();
-
             errorBox.style.display = "none";
-            errorBox.innerText = "";
 
             if (!fileInput.files.length) {
-                errorBox.innerText = "Please select a file first";
+                errorBox.innerText = "⚠ Please select a file first!";
                 errorBox.style.display = "block";
                 return;
             }
 
-            statusLabel.innerText = "Processing Data Pipeline...";
+            statusLabel.innerText = "PROCESSING PREVIEW...";
             statusLabel.style.color = "#a333ff";
             startBtn.disabled = true;
-            resultsArea.style.display = 'none';
-
             const formData = new FormData(e.target);
 
             try {
-                const response = await fetch('/process', {
-                    method: 'POST',
-                    body: formData
-                });
-
+                const response = await fetch('/process', { method: 'POST', body: formData });
                 const result = await response.json();
-                console.log(result);
 
                 if (result.status === "success") {
-
-                    errorBox.style.display = "none";
-
-                    statusLabel.innerText = "Process Complete!";
+                    statusLabel.innerText = "ENGINE COMPLETE";
                     statusLabel.style.color = "#14ffd0";
-
                     resultsArea.style.display = 'block';
                     document.getElementById('table-preview').innerHTML = result.preview;
                     document.getElementById('res-rows').innerText = "Rows: " + result.rows;
                     document.getElementById('res-cols').innerText = "Cols: " + result.cols;
 
+                    // روابط التقرير الأولية
                     document.getElementById('view-btn').href = result.view_url;
                     document.getElementById('download-btn').href = result.download_url;
 
-                    window.scrollTo({
-                        top: resultsArea.offsetTop - 50,
-                        behavior: 'smooth'
-                    });
-
+                    streamBtn.style.display = "inline-block";
+                    streamBtn.scrollIntoView({ behavior: 'smooth' });
                 } else {
-                    statusLabel.innerText = "Engine Error";
-                    statusLabel.style.color = "#ff4b2b";
-                    errorBox.innerText = result.message;
+                    errorBox.innerText = "Engine Error: " + result.message;
                     errorBox.style.display = "block";
                 }
-
             } catch (err) {
-                console.error(err);
-                statusLabel.innerText = "Connection Error";
-                statusLabel.style.color = "#ff4b2b";
-            } finally {
+                errorBox.innerText = "Connection Failed!";
+                errorBox.style.display = "block";
+            }
+            finally {
                 startBtn.disabled = false;
             }
         };
+        
+        const actionSelect = document.querySelector('select[name="action_type"]');
+
+        actionSelect.onchange = () => {
+            
+            resultsArea.style.display = "none";
+            if (dashboard) dashboard.style.display = "none";
+            const pipeResults = document.getElementById('pipeline-results');
+            if (pipeResults) pipeResults.style.display = "none";
+
+            
+            streamBtn.style.display = "none";
+
+            
+            statusLabel.innerText = "ENGINE READY";
+            statusLabel.style.color = "var(--neon-c)";
+            renderPipeline();
+            startPipelineStream(file);
+           
+        };
+
+        // 4. LIVE PIPELINE (The Stream)
+
+
+        
+        streamBtn.onclick = () => {
+            const file = fileInput.files[0];
+            if (file) {
+               
+                document.getElementById('pipeline-dashboard').style.display = 'grid';
+
+               
+                streamWrapper.classList.add('loading');
+                streamBtn.innerText = "ENGINE RUNNING...";
+                streamBtn.disabled = true;
+
+               
+                document.getElementById('pipeline-dashboard').scrollIntoView({ behavior: 'smooth' });
+
+                renderPipeline();
+                startPipelineStream(file);
+            }
+        };
+        function resetPipeline() {
+            const consoleBox = document.getElementById("pipeline-console");
+            
+            if (consoleBox) {
+                consoleBox.innerHTML = '<div class="log-entry">System Standby. Ready for injection.</div>';
+            }
+
+            
+            document.querySelectorAll(".stage-item").forEach(item => {
+                item.classList.remove("active", "completed");
+                const p = item.querySelector(".stage-info p");
+                if (p) p.innerText = "Waiting for engine...";
+            });
+        }
+        function restartPipelineUI() {
+            const streamBtn = document.getElementById('stream-btn');
+            const streamWrapper = document.querySelector('.stream-wrapper');
+            const dashboard = document.getElementById('pipeline-dashboard');
+            const pipeResults = document.getElementById('pipeline-results');
+
+           
+            streamBtn.disabled = false;
+            streamBtn.innerText = "RUN NEW PIPELINE";
+            streamBtn.style.background = "var(--neon-p)";
+
+            
+            streamWrapper.classList.remove('loading');
+
+            
+            dashboard.style.display = 'none';
+            pipeResults.style.display = 'none';
+
+            
+            resetPipeline();
+
+            
+            streamBtn.onclick = () => {
+                const file = fileInput.files[0];
+                if (file) {
+                    
+                    document.getElementById('pipeline-dashboard').style.display = 'grid';
+
+                    
+                    streamWrapper.classList.add('loading');
+                    streamBtn.innerText = "ENGINE RUNNING...";
+                    streamBtn.disabled = true;
+
+                    
+                    document.getElementById('pipeline-dashboard').scrollIntoView({ behavior: 'smooth' });
+
+                    renderPipeline();
+                    startPipelineStream(file);
+                }
+            };
+        }
+        
+        function handleFinalReport(data) {
+            const streamWrapper = document.querySelector('.stream-wrapper');
+            const streamBtn = document.getElementById('stream-btn');
+
+            if (streamWrapper) streamWrapper.classList.remove('loading');
+
+            if (streamBtn) {
+                streamBtn.innerText = "RESTART ENGINE";
+                streamBtn.disabled = false;
+                streamBtn.style.background = "#07cda5"; 
+
+                
+                streamBtn.onclick = () => restartPipelineUI();
+            }
+
+           
+            const pipeResults = document.getElementById('pipeline-results');
+            pipeResults.style.display = 'block';
+
+            document.getElementById('pipe-view-btn').href = data.view_url;
+            document.getElementById('pipe-download-btn').href = data.download_url;
+
+            pipeResults.scrollIntoView({ behavior: 'smooth' });
+        }
     </script>
+
+    <script src="{{ url_for('static', filename='scripts/pipeline_logic.js') }}"></script>
 </body>
+
 </html>

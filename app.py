@@ -1,14 +1,20 @@
-from flask import Flask, render_template, request, jsonify, send_from_directory,send_file
+from flask import Flask, render_template, request, jsonify, send_from_directory,send_file,Response
 import os
+import json
+import time
+import uuid
 from werkzeug.utils import secure_filename
+
 
 # Import custom modules from Phase_1
 from Phase_1.DataLoader import DataLoader
 from Phase_1.ReportGenerator import ReportGenerator
+from Phase_1.EDAPipeline import EDAPipeline
+
 
 # Initialize Flask app
 app = Flask(__name__)
-app.secret_key = "mariam_bright_key"
+# app.secret_key = "mariam_bright_key"
 
 # Base directory of the project
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -99,7 +105,51 @@ def process():
 
     return jsonify({"status": "error", "message": "Unsupported file format"}), 400
 
+@app.route('/pipeline-stream', methods=['POST'])
+def pipeline_stream():
+    file = request.files.get('file')
+    if not file:
+        return jsonify({"error": "No file"}), 400
 
+    filename = secure_filename(file.filename)
+    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    file.save(filepath)
+
+    def send(stage, message, progress):
+        return f"data: {json.dumps({'stage': stage, 'message': message, 'progress': progress, 'type': 'progress'})}\n\n"
+
+    def generate():
+        try:
+            pipeline = EDAPipeline(filepath)
+            yield send("Data Validation", "Engine started. Accessing data stream...", 10)
+            time.sleep(0.8)
+            
+            raw_data = pipeline.loader.get_data()
+            yield send("Data Validation", f"File locked. Detected {raw_data.shape[0]} rows.", 25)
+            time.sleep(0.8)
+            yield send("Preprocessing", "Scanning for missing values (Nulls)...", 35)
+            pipeline.preprocessor.handle_nulls()
+            yield send("Preprocessing", "Applying smart type conversion...", 50)
+            pipeline.preprocessor.convert_types()
+            pipeline.preprocessor.remove_duplicates()
+            clean_data = pipeline.preprocessor.get_clean_data()
+            time.sleep(0.4)
+            yield send("Outlier Detection", "Analyzing statistical distribution...", 75)
+            pipeline.outlier_handler = pipeline.outlier_handler.__class__(clean_data)
+            pipeline.outlier_handler.detect_iqr()
+            clean_data = pipeline.outlier_handler.cap_outliers()
+            time.sleep(0.8)
+            yield send("Report Generated", "Synthesizing intelligence report...", 95)
+            out_file = f"report_{uuid.uuid4().hex[:8]}.html"
+            output_path = os.path.join(REPORTS_FOLDER, out_file)
+            ReportGenerator(clean_data).generate_report(mode="detailed", file_name=output_path)
+
+            yield f"data: {json.dumps({'done': True, 'stage': 'Report Generated', 'message': 'Complete', 'progress': 100, 'view_url': f'/view/{out_file}', 'download_url': f'/download/{out_file}', 'rows': len(clean_data), 'cols': len(clean_data.columns)})}\n\n"
+        except Exception as e:
+            yield send("Error", f"Engine failure: {str(e)}", 0)
+
+    return Response(generate(), mimetype='text/event-stream')
+    
 # View report in browser
 @app.route('/view/<filename>')
 def view(filename):
