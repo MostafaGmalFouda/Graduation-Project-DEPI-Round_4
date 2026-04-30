@@ -1,0 +1,345 @@
+/* =========================
+   PIPELINE CONTAINER
+========================= */
+.pipeline-flow {
+    margin: 50px auto;
+    max-width: 650px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 0 20px;
+}
+
+/* =========================
+   STAGE ITEM BASE
+========================= */
+.stage-item {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    padding: 20px;
+    border-radius: 18px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+
+    opacity: 0;
+    transform: translateY(20px);
+
+    transition: all 0.5s ease;
+}
+
+/* =========================
+   ACTIVE STATE
+========================= */
+.stage-item.active {
+    opacity: 1;
+    transform: translateY(0);
+
+    border-color: var(--neon-c);
+    background: rgba(20, 255, 208, 0.06);
+    box-shadow: 0 0 20px rgba(20, 255, 208, 0.15);
+}
+
+/* =========================
+   COMPLETED STATE
+========================= */
+.stage-item.completed {
+    border-color: var(--neon-p);
+    background: rgba(163, 51, 255, 0.06);
+    box-shadow: 0 0 20px rgba(163, 51, 255, 0.15);
+}
+
+/* =========================
+   ICON
+========================= */
+.stage-icon {
+    font-size: 24px;
+    color: var(--neon-c);
+    min-width: 30px;
+    text-align: center;
+    filter: drop-shadow(0 0 8px var(--neon-c));
+}
+
+/* Pulse animation when active */
+.stage-item.active .stage-icon {
+    animation: pulseGlow 1.2s infinite alternate;
+}
+
+@keyframes pulseGlow {
+    from {
+        transform: scale(1);
+        filter: drop-shadow(0 0 5px var(--neon-c));
+    }
+    to {
+        transform: scale(1.1);
+        filter: drop-shadow(0 0 15px var(--neon-c));
+    }
+}
+
+/* =========================
+   TEXT
+========================= */
+.stage-info {
+    text-align: left;
+    flex-grow: 1;
+}
+
+.stage-info h4 {
+    font-size: 14px;
+    color: #fff;
+    margin-bottom: 4px;
+    letter-spacing: 1px;
+}
+
+.stage-info p {
+    font-size: 12px;
+    color: var(--txt-dim);
+}
+
+/* =========================
+   STATUS ICON
+========================= */
+.stage-status {
+    font-size: 18px;
+}
+
+.stage-status i {
+    transition: 0.3s;
+}
+
+/* =========================
+   SPINNER
+========================= */
+.fa-spin {
+    animation: spinGlow 1s linear infinite;
+}
+
+@keyframes spinGlow {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* =========================
+   PIPELINE LINE 
+========================= */
+.pipeline-line {
+    width: 2px;
+    height: 25px;
+    margin: 0 auto;
+    background: rgba(255,255,255,0.1);
+    position: relative;
+    overflow: hidden;
+}
+
+/* moving light effect */
+.pipeline-line::after {
+    content: "";
+    position: absolute;
+    top: -100%;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: var(--neon-c);
+    animation: flowLine 1.5s linear infinite;
+}
+
+@keyframes flowLine {
+    0% { top: -100%; }
+    100% { top: 100%; }
+}
+
+/* =========================
+   OPTIONAL: STAGE NUMBER
+========================= */
+.stage-number {
+    font-size: 11px;
+    color: var(--txt-dim);
+    opacity: 0.6;
+}
+.generator-actions {
+    margin: 30px auto;
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.generator-actions a {
+    text-decoration: none;
+}
+.pipeline-dashboard {
+    display: grid;
+    grid-template-columns: 1fr 1fr; 
+    gap: 30px;
+    max-width: 1100px;
+    margin: 40px auto;
+    padding: 20px;
+}
+
+.log-terminal {
+    background: #05070a;
+    border: 1px solid var(--neon-p);
+    border-radius: 15px;
+    height: 400px;
+    padding: 20px;
+    overflow-y: auto;
+    font-family: 'Monaco', monospace;
+    color: var(--neon-c);
+    text-align: left;
+    box-shadow: inset 0 0 15px rgba(163, 51, 255, 0.2);
+}
+
+.log-entry {
+    font-size: 13px;
+    margin-bottom: 8px;
+    border-left: 2px solid var(--neon-p);
+    padding-left: 10px;
+    animation: fadeIn 0.3s ease;
+}
+
+.pipeline-left {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+
+.pipeline-dashboard-grid {
+    display: grid;
+    grid-template-columns: 1fr 1.2fr; 
+    gap: 30px;
+    max-width: 1200px;
+    margin: 30px auto;
+    padding: 20px;
+    background: rgba(10, 12, 16, 0.5);
+    border-radius: 20px;
+    border: 1px solid var(--border-glass);
+}
+
+
+.log-console {
+    background: #05070a;
+    border: 1px solid var(--neon-p);
+    border-radius: 15px;
+    height: 450px;
+    padding: 20px;
+    overflow-y: auto;
+    font-family: 'Courier New', monospace;
+    box-shadow: inset 0 0 20px rgba(163, 51, 255, 0.1);
+}
+
+.log-entry {
+    font-size: 13px;
+    margin-bottom: 10px;
+    line-height: 1.6;
+    color: var(--txt-dim);
+    border-left: 2px solid transparent;
+    padding-left: 10px;
+    animation: fadeInLog 0.3s ease;
+}
+
+.log-entry.active-log {
+    color: var(--neon-c);
+    border-left-color: var(--neon-c);
+    background: rgba(20, 255, 208, 0.05);
+}
+
+.side-title {
+    font-size: 14px;
+    color: var(--neon-p);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+@keyframes fadeInLog {
+    from { opacity: 0; transform: translateX(10px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+#pipeline-results {
+    background: rgba(15, 18, 25, 0.8) !important;
+    backdrop-filter: blur(12px);
+    border-radius: 20px;
+    padding: 25px;
+    text-align: center; 
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5), 
+                inset 0 0 15px rgba(163, 51, 255, 0.2);
+    max-width: 800px;
+    margin: 30px auto !important;
+    border: 1px solid rgba(163, 51, 255, 0.4) !important;
+    animation: slideUpFade 0.6s ease-out;
+}
+
+
+#pipeline-results .card-header {
+    font-size: 0.9rem;
+    letter-spacing: 3px;
+    margin-bottom: 15px;
+    color: var(--neon-p);
+    text-shadow: 0 0 10px var(--neon-p);
+}
+
+
+.stats-bar {
+    background: rgba(255, 255, 255, 0.03);
+    padding: 12px 20px;
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 25px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.stats-bar span {
+    font-family: 'Courier New', monospace;
+    font-size: 0.85rem;
+    color: var(--txt-dim);
+}
+
+
+#pipeline-results .action-footer {
+    display: flex;
+    justify-content: center; 
+    gap: 15px;
+    margin-top: 10px;
+}
+
+#pipeline-results .action-btn {
+    padding: 10px 20px; 
+    font-size: 0.75rem; 
+    font-weight: 600;
+    letter-spacing: 1px;
+    border-radius: 20px;
+    min-width: 140px;
+    text-transform: uppercase;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+#pipeline-results .action-btn::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -60%;
+    width: 20%;
+    height: 200%;
+    background: rgba(255, 255, 255, 0.2);
+    transform: rotate(30deg);
+    transition: 0.5s;
+}
+
+#pipeline-results .action-btn:hover::after {
+    left: 120%;
+}
+
+
+@keyframes slideUpFade {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+}
