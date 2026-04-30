@@ -1,5 +1,4 @@
-# Graduation-Project-DEPI-Round_4# 
-## 🧠 Explainable AI Model Debugger  
+# 🧠 Explainable AI Model Debugger  
 ## 🎓 DEPI Graduation Project – Phase 1
 
 ---
@@ -8,83 +7,135 @@
 
 This project is part of a larger Explainable AI & Model Debugging Platform aimed at transforming machine learning systems from black-box models into transparent, interpretable, and debuggable AI systems.
 
-Phase 1 focuses on building the core data processing and analytical pipeline architecture, which serves as the foundation for future explainability, visualization, and AI debugging capabilities.
+Phase 1 delivers the core data intelligence layer along with initial UI and reporting capabilities, forming the foundation of a full-scale AI system.
+
+---
+
+## 🧱 System Architecture Overview
+
+┌───────────────────────────┐
+│       User Interface      │
+│   (HTML / CSS Reports)   │
+└─────────────┬─────────────┘
+              │
+┌─────────────▼─────────────┐
+│      EDA Pipeline Core     │
+│     (EDAPipeline Engine)  │
+└─────────────┬─────────────┘
+              │
+ ┌────────────┼────────────┐
+ │            │            │
+ ▼            ▼            ▼
+DataLoader  DataValidator  DataPreprocessor
+                              │
+                              ▼
+                       OutlierHandler
+                              │
+                              ▼
+                       ReportGenerator
+
+---
+
+## 🔄 End-to-End Data Flow
+
+[ Raw Dataset ]
+        │
+        ▼
+[ DataLoader ]
+        │
+        ▼
+[ DataValidator ]
+        │
+        ▼
+[ DataPreprocessor ]
+        │
+        ▼
+[ OutlierHandler ]
+        │
+        ▼
+[ ReportGenerator ]
+        │
+        ▼
+[ HTML Report + UI Display ]
 
 ---
 
 ## 📌 Phase 1 Scope
 
-This phase implements a complete EDA + Data Processing Pipeline System using a modular OOP architecture.
-
-It includes:
-- Data ingestion and loading  
-- Data validation and quality control  
-- Data preprocessing pipeline  
-- Outlier detection and handling  
-- Automated reporting system  
-- End-to-end pipeline orchestration  
-
----
-
-## 🏗️ System Architecture (Phase 1)
-
-DataLoader  
-↓  
-DataValidator  
-↓  
-DataPreprocessor  
-↓  
-OutlierHandler  
-↓  
-ReportGenerator  
-↓  
-EDAPipeline (Orchestrator)  
-
-Each module is designed to be independent, reusable, and scalable for future AI explainability integration.
+✔ Data ingestion and loading  
+✔ Data validation and quality checks  
+✔ Data preprocessing pipeline  
+✔ Outlier detection and handling  
+✔ Automated report generation  
+✔ Pipeline orchestration  
+✔ Basic UI (HTML/CSS)  
+✔ Exported HTML reports  
 
 ---
 
-## 🧩 Core Components
+## 🧩 Core Components Breakdown
 
-### DataLoader
-- Load CSV files  
-- Load Excel files  
-- Return structured dataset  
+### Data Layer
+- DataLoader → Reads and structures datasets  
+- DataValidator → Ensures data quality  
 
-### DataValidator
-- Detect missing values  
-- Validate data types  
-- Identify duplicates  
-- Generate data quality reports  
+### Processing Layer
+- DataPreprocessor → Cleans and prepares data  
+- OutlierHandler → Handles anomalies  
 
-### DataPreprocessor
-- Handle missing values using strategies  
-- Convert data types  
-- Remove duplicates  
-- Initial outlier handling  
-- Return cleaned dataset  
+### Output Layer
+- ReportGenerator → Produces insights  
+- HTML Reports → Visual output  
 
-### OutlierHandler
-- IQR-based detection  
-- Z-score detection  
-- Remove outliers  
-- Cap extreme values  
-
-### ReportGenerator
-- Descriptive statistics  
-- Correlation matrix  
-- Automated reports  
-
-### EDAPipeline (Orchestrator)
-- Controls full workflow execution  
-- Connects all modules  
-- Ensures smooth data flow from raw data to final output  
+### Control Layer
+- EDAPipeline → Orchestrates full workflow  
 
 ---
 
-## 🔄 Data Flow
+## 🌐 Frontend & Reporting
 
-Raw Dataset → DataLoader → DataValidator → DataPreprocessor → OutlierHandler → ReportGenerator → Final Clean Data + Report  
+┌────────────────────────────┐
+│        index.html          │
+│   (User Interaction UI)    │
+└─────────────┬──────────────┘
+              │
+┌─────────────▼──────────────┐
+│        style.css           │
+│   (UI Styling Layer)       │
+└─────────────┬──────────────┘
+              │
+┌─────────────▼──────────────┐
+│    final_report.html       │
+│ (Generated Analysis View)  │
+└────────────────────────────┘
+
+---
+
+## 📁 Project Structure
+
+Graduation-Project-DEPI-Round_4/
+│
+├── Phase_1/
+│   ├── data_loader.py
+│   ├── data_validator.py
+│   ├── data_preprocessor.py
+│   ├── outlier_handler.py
+│   ├── report_generator.py
+│   ├── eda_pipeline.py
+│   ├── main.py
+│   └── template.html
+│
+├── templates/
+│   └── index.html
+│
+├── static/
+│   └── css/
+│       └── style.css
+│
+├── reports/
+│   └── final_report.html
+│
+└── README.md
 
 ---
 
@@ -93,35 +144,22 @@ Raw Dataset → DataLoader → DataValidator → DataPreprocessor → OutlierHan
 Python  
 Pandas  
 NumPy  
-Object-Oriented Programming (OOP)  
-Data Analysis Techniques  
-Statistical Methods  
-
----
-
-## 📁 Project Structure
-
-/Phase_1  
-- data_loader.py  
-- data_validator.py  
-- data_preprocessor.py  
-- outlier_handler.py  
-- report_generator.py  
-- eda_pipeline.py  
-- main.py  
+OOP (Object-Oriented Programming)  
+Statistical Analysis  
+HTML / CSS  
 
 ---
 
 ## 📌 Current Status
 
 ✔ Phase 1 Completed  
-✔ Full EDA Pipeline Implemented  
-✔ Modular OOP Architecture  
-✔ Data Validation System  
-✔ Preprocessing Engine  
-✔ Outlier Detection System  
-✔ Reporting Module  
-✔ Pipeline Orchestrator  
+✔ Fully Functional EDA Pipeline  
+✔ Clean Modular Architecture  
+✔ Data Validation & Preprocessing  
+✔ Outlier Detection Engine  
+✔ Automated Reporting System  
+✔ Basic UI + Styled Interface  
+✔ Exportable HTML Reports  
 
 ---
 
@@ -131,26 +169,34 @@ Statistical Methods
 - Mostafa Gamal Fouda  
 - Mariam Gaber  
 - Tasneem Radwan  
-- Samuel Adel
+- Samuel Adel  
 - Abdelhamid Ibrahim  
 
 ---
 
 ## 📈 Future Work
 
-- Explainable AI integration (SHAP / LIME)  
-- Machine Learning model layer  
-- Bias detection module  
-- Streamlit dashboard  
-- REST API (Flask / FastAPI)  
-- Real-time AI debugging system  
+[ Phase 2 ]
+→ Explainable AI (SHAP / LIME)
+
+[ Phase 3 ]
+→ Machine Learning Models + Debugging
+
+[ Phase 4 ]
+→ Streamlit Dashboard + Visualization
+
+[ Phase 5 ]
+→ Full Deployment (API + Cloud)
 
 ---
 
 ## ⚡ Key Insight
 
-This project establishes the foundation of an intelligent AI debugging system that will evolve into a full Explainable AI platform capable of:
-- Understanding model behavior  
-- Explaining predictions  
-- Detecting bias  
-- Debugging ML pipelines  
+Phase 1 establishes the system’s backbone by combining:
+
+✔ Data Engineering  
+✔ Data Analysis  
+✔ Pipeline Automation  
+✔ Basic User Interface  
+
+This is the first step toward building a full Explainable AI system capable of transforming complex ML models into transparent and trustworthy systems.
