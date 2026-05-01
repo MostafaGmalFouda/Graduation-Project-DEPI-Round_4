@@ -7,6 +7,8 @@ import seaborn as sns
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+import plotly.io as pio
+pio.renderers.default = "json"  # Prevent any browser/tab from opening
 
 
 # ── Global Seaborn Style ───────────────────────────────────────────────────────
@@ -114,19 +116,17 @@ class DataVisualizer:
         return [col for col, t in self.schema.items() if t == col_type]
 
     def _save_matplotlib(self, fig: plt.Figure, filename: str) -> str:
-        """Save a Matplotlib/Seaborn figure as PNG and show it."""
+        """Save a Matplotlib/Seaborn figure as PNG (no display)."""
         path = os.path.join(self.plots_dir, filename)
         fig.savefig(path, bbox_inches="tight", dpi=150)
-        plt.show()
         plt.close(fig)
         print(f"  ✔ Saved: {path}")
         return path
 
     def _save_plotly(self, fig, filename: str) -> str:
-        """Save a Plotly figure as interactive HTML and show it."""
+        """Save a Plotly figure as interactive HTML (no display)."""
         path = os.path.join(self.plots_dir, filename)
-        fig.write_html(path)
-        fig.show()
+        fig.write_html(path, include_plotlyjs="cdn", full_html=True)
         print(f"  ✔ Saved: {path}")
         return path
 
@@ -553,14 +553,43 @@ class DataVisualizer:
         try:
             self._validate_cols(num_cols + [cat_col])
 
-            # Melt numeric columns into long format for FacetGrid
-            melted = self.data[num_cols + [cat_col]].melt(id_vars=cat_col, var_name="Variable", value_name="Value")
+            # Limit categories to avoid huge figures
+            cat_vals = self.data[cat_col].dropna().unique()
+            max_cats = 6
+            if len(cat_vals) > max_cats:
+                cat_vals = cat_vals[:max_cats]
+            df_filtered = self.data[self.data[cat_col].isin(cat_vals)]
 
-            g = sns.FacetGrid(melted, col="Variable", row=cat_col, height=3.5, aspect=1.4, sharey=False)
-            g.map_dataframe(sns.histplot, x="Value", kde=True, color="steelblue")
-            g.set_titles(col_template="{col_name}", row_template="{row_name}")
-            g.set_axis_labels("Value", "Count")
-            g.fig.suptitle(f"Facet Grid: {num_cols} by {cat_col}", fontsize=13, fontweight="bold", y=1.01)
+            # Cap numeric columns to avoid excessive columns
+            num_cols = num_cols[:6]
+
+            # Melt numeric columns into long format for FacetGrid
+            melted = df_filtered[num_cols + [cat_col]].melt(
+                id_vars=cat_col, var_name="Variable", value_name="Value"
+            )
+
+            n_cols = min(len(num_cols), 3)
+            n_rows = len(cat_vals)
+            fig_w  = max(5, n_cols * 4.5)
+            fig_h  = max(3, n_rows * 3.0)
+
+            g = sns.FacetGrid(
+                melted,
+                col="Variable",
+                row=cat_col,
+                height=3.0,
+                aspect=fig_w / max(fig_h, 1),
+                sharey=False,
+                col_wrap=None
+            )
+            g.map_dataframe(sns.histplot, x="Value", kde=True, color="steelblue", alpha=0.7)
+            g.set_titles(col_template="{col_name}", row_template="{row_name}", size=10)
+            g.set_axis_labels("Value", "Count", fontsize=9)
+            g.fig.suptitle(
+                f"Facet Grid by {cat_col}",
+                fontsize=12, fontweight="bold", y=1.02
+            )
+            g.fig.tight_layout()
 
             fname = f"facet_grid_by_{cat_col}.png"
             print(f"Generating Facet Grid for {num_cols} by {cat_col}...")
