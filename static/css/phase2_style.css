@@ -6,13 +6,13 @@
 
 /* ── CSS Variables (inherits from style.css) ── */
 :root {
-    --phase2-accent: #00e5ff;      /* Electric cyan accent for Phase 2 */
+    --phase2-accent:  #14ffd0;          /* Electric cyan accent for Phase 2 */
     --phase2-gold:   #ffd54f;      /* Warning / highlight gold */
     --phase2-green:  #69ff47;      /* Success green */
     --phase2-red:    #ff4081;      /* Error / danger red */
     --panel-bg:      rgba(8, 10, 16, 0.85);
-    --panel-border:  rgba(0, 229, 255, 0.12);
-    --tab-active:    rgba(0, 229, 255, 0.15);
+    --panel-border:  rgba(0, 255, 191, 0.12);
+    --tab-active:    rgba(0, 255, 157, 0.15);
     --divider:       rgba(255, 255, 255, 0.06);
 }
 
@@ -88,7 +88,7 @@
    UPLOAD ZONE
 ════════════════════════════════════════════ */
 .upload-zone {
-    border: 2px dashed rgba(0, 229, 255, 0.25);
+    border: 2px dashed rgba(0, 255, 179, 0.25);
     border-radius: 20px;
     padding: 50px 30px;
     background: rgba(0, 229, 255, 0.02);
@@ -109,7 +109,7 @@
     background: linear-gradient(
         90deg,
         transparent,
-        rgba(0, 229, 255, 0.3),
+        rgba(0, 255, 145, 0.264),
         transparent
     );
     animation: borderSweep 4s linear infinite;
@@ -125,8 +125,8 @@
 .upload-zone:hover,
 .upload-zone.drag-over {
     border-color: var(--phase2-accent);
-    background: rgba(0, 229, 255, 0.06);
-    box-shadow: 0 0 30px rgba(0, 229, 255, 0.1);
+    background: rgba(0, 255, 174, 0.112);
+    box-shadow: 0 0 30px rgba(0, 255, 174, 0.1);
 }
 
 .upload-icon {
@@ -161,7 +161,7 @@
 .upload-file-name {
     display: inline-block;
     padding: 6px 18px;
-    background: rgba(0, 229, 255, 0.1);
+    background: rgba(0, 255, 174, 0.112);
     border: 1px solid var(--phase2-accent);
     border-radius: 20px;
     font-size: 12px;
@@ -320,8 +320,8 @@
 .tab-btn.active {
     background: var(--tab-active);
     color: var(--phase2-accent);
-    box-shadow: 0 0 15px rgba(0, 229, 255, 0.1);
-    border: 1px solid rgba(0, 229, 255, 0.2);
+    box-shadow: 0 0 15px rgba(0, 255, 166, 0.1);
+    border: 1px solid rgba(0, 255, 157, 0.2);
 }
 
 /* Tab Content Panels */
@@ -376,7 +376,7 @@
 }
 
 .chart-config-card:hover {
-    border-color: rgba(0, 229, 255, 0.25);
+    border-color: rgba(0, 255, 166, 0.25);
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
 }
 
@@ -432,7 +432,7 @@
 .form-select:hover,
 .form-select:focus {
     border-color: var(--phase2-accent);
-    box-shadow: 0 0 0 2px rgba(0, 229, 255, 0.1);
+    box-shadow: 0 0 0 2px rgba(0, 255, 174, 0.163);
 }
 
 .form-select option {
@@ -469,8 +469,8 @@
     margin-top: 18px;
     border: none;
     border-radius: 12px;
-    background: linear-gradient(135deg, rgba(0, 229, 255, 0.2), rgba(163, 51, 255, 0.2));
-    border: 1px solid rgba(0, 229, 255, 0.3);
+    background: linear-gradient(135deg, rgba(0, 255, 162, 0.2), rgba(163, 51, 255, 0.2));
+    border: 1px solid rgba(0, 255, 119, 0.3);
     color: var(--phase2-accent);
     font-size: 11px;
     font-weight: 700;
@@ -486,8 +486,8 @@
 }
 
 .generate-btn:hover:not(:disabled) {
-    background: linear-gradient(135deg, rgba(0, 229, 255, 0.35), rgba(163, 51, 255, 0.35));
-    box-shadow: 0 0 20px rgba(0, 229, 255, 0.2);
+    background: linear-gradient(135deg, rgba(0, 255, 195, 0.432), rgba(163, 51, 255, 0.35));
+    box-shadow: 0 0 20px rgba(0, 255, 195, 0.26);
     transform: translateY(-2px);
 }
 
@@ -565,8 +565,8 @@
 }
 
 .result-action-btn.view-btn:hover {
-    background: rgba(0, 229, 255, 0.15);
-    box-shadow: 0 0 15px rgba(0, 229, 255, 0.2);
+    background: rgba(0, 255, 204, 0.15);
+    box-shadow: 0 0 15px rgba(0, 255, 174, 0.2);
 }
 
 .result-action-btn.download-btn {
@@ -749,7 +749,7 @@
     padding: 14px 40px;
     border: none;
     border-radius: 14px;
-    background: linear-gradient(45deg, var(--phase2-accent), #00b8d4);
+    background: linear-gradient(45deg, var(--phase2-accent),  #14ffd0   );
     color: #000;
     font-size: 11px;
     font-weight: 800;
@@ -760,13 +760,13 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    box-shadow: 0 10px 30px rgba(0, 229, 255, 0.3);
+    box-shadow: 0 10px 30px rgba(0, 255, 191, 0.3);
     font-family: 'Inter', sans-serif;
 }
 
 .run-all-btn:hover:not(:disabled) {
     transform: translateY(-3px);
-    box-shadow: 0 15px 40px rgba(0, 229, 255, 0.45);
+    box-shadow: 0 15px 40px rgba(0, 255, 179, 0.45);
 }
 
 .run-all-btn:disabled {
@@ -796,7 +796,7 @@
 
 .gallery-item:hover {
     border-color: var(--phase2-accent);
-    box-shadow: 0 0 20px rgba(0, 229, 255, 0.1);
+    box-shadow: 0 0 20px #00ffb31a;
     transform: translateY(-4px);
 }
 
@@ -881,7 +881,7 @@
 }
 .viz-dashboard-grid .plot-preview-img:hover {
     transform: scale(1.015);
-    box-shadow: 0 0 20px rgba(0,229,255,0.15);
+    box-shadow: 0 0 20px rgba(0, 255, 179, 0.15);
 }
 
 /* Iframes in grid - reduced height */
@@ -932,7 +932,7 @@
 .viz-skeleton {
     background: linear-gradient(90deg,
         rgba(255,255,255,0.03) 25%,
-        rgba(0,229,255,0.06) 50%,
+        rgba(0, 255, 191, 0.06) 50%,
         rgba(255,255,255,0.03) 75%);
     background-size: 200% 100%;
     animation: shimmer 1.6s infinite;
@@ -986,6 +986,6 @@
 }
 
 .chart-config-card:hover {
-    border-color: rgba(0, 229, 255, 0.25);
+    border-color: rgba(0, 255, 187, 0.25);
     box-shadow: 0 8px 30px rgba(0,0,0,0.3);
 }

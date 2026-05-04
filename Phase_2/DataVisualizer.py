@@ -11,9 +11,33 @@ import plotly.io as pio
 pio.renderers.default = "json"  # Prevent any browser/tab from opening
 
 
-# ── Global Seaborn Style ───────────────────────────────────────────────────────
-sns.set_theme(style="whitegrid", palette="muted")
-
+# --- AI Cyberpunk Theme Colors ---
+BG_COLOR = "#0b0b18"
+GRID_COLOR = "#1f1f3a"
+color_3= "#9cfbea7c"
+color_4= "#77f8e185"
+color_5= "#42efcfa5"
+color_6= "#e29cfb7b"
+color_7= "#c483f6b7"
+color_8= "#d359fb7b"
+TEXT_COLOR = "#e0e0e0"
+ACCENT_PURPLE = "#a855f7"
+ACCENT_CYAN = "#06d49d"
+PALETTE = [ACCENT_PURPLE, ACCENT_CYAN, "#a248eccf", "#8959f9c8", "#0ee98ed8"]
+COLORY=[color_3, color_4,color_5,ACCENT_CYAN,color_6,color_7,color_8,ACCENT_PURPLE]
+# --- Global Seaborn Style Configuration ---
+sns.set_theme(style="darkgrid", rc={
+    "axes.facecolor": BG_COLOR,
+    "figure.facecolor": BG_COLOR,
+    "grid.color": GRID_COLOR,
+    "axes.edgecolor": GRID_COLOR,
+    "text.color": TEXT_COLOR,
+    "axes.labelcolor": TEXT_COLOR,
+    "xtick.color": TEXT_COLOR,
+    "ytick.color": TEXT_COLOR,
+    "axes.titlecolor": ACCENT_CYAN
+})
+custom_cmap = sns.blend_palette([color_3, color_4,color_5,ACCENT_CYAN,color_6,color_7,color_8,ACCENT_PURPLE], as_cmap=True)
 
 class DataVisualizer:
     """
@@ -114,11 +138,22 @@ class DataVisualizer:
     def _get_cols_by_type(self, col_type: str) -> list:
         """Return list of column names matching the given schema type."""
         return [col for col, t in self.schema.items() if t == col_type]
+    
+    def _apply_dark_layout_plotly(self, fig):
+        fig.update_layout(
+            paper_bgcolor=BG_COLOR,
+            plot_bgcolor=BG_COLOR,
+            font_color=TEXT_COLOR,
+            margin=dict(t=50, l=25, r=25, b=25),
+            xaxis=dict(gridcolor=GRID_COLOR, zerolinecolor=GRID_COLOR),
+            yaxis=dict(gridcolor=GRID_COLOR, zerolinecolor=GRID_COLOR)
+        )
+        return fig
 
-    def _save_matplotlib(self, fig: plt.Figure, filename: str) -> str:
+    def _save_matplotlib(self, fig, filename: str) -> str:
         """Save a Matplotlib/Seaborn figure as PNG (no display)."""
         path = os.path.join(self.plots_dir, filename)
-        fig.savefig(path, bbox_inches="tight", dpi=150)
+        fig.savefig(path, bbox_inches="tight", dpi=150, facecolor=BG_COLOR)
         plt.close(fig)
         print(f"  ✔ Saved: {path}")
         return path
@@ -166,16 +201,16 @@ class DataVisualizer:
 
             fig, axes = plt.subplots(nrows, ncols, figsize=(18, nrows * 4))
             axes = axes.flatten()
-            fig.suptitle("EDA Summary Dashboard", fontsize=18, fontweight="bold", y=1.01)
+            fig.suptitle("EDA Summary Dashboard", fontsize=18, fontweight="bold", y=1.01,color=ACCENT_PURPLE)
 
             for i, col in enumerate(all_cols):
                 ax = axes[i]
                 if col in num_cols:
-                    sns.histplot(self.data[col].dropna(), kde=True, ax=ax, color="steelblue")
+                    sns.histplot(self.data[col].dropna(), kde=True, ax=ax, color=ACCENT_CYAN, line_kws={'lw': 2})
                     ax.set_title(f"[Numeric] {col}", fontsize=11)
                 else:
                     top_vals = self.data[col].value_counts().head(10)
-                    sns.barplot(x=top_vals.values, y=top_vals.index.astype(str), ax=ax, palette="muted")
+                    sns.barplot(x=top_vals.values, y=top_vals.index.astype(str), ax=ax,palette=COLORY)
                     ax.set_title(f"[Categorical] {col}", fontsize=11)
                 ax.set_xlabel("")
 
@@ -210,16 +245,16 @@ class DataVisualizer:
 
             fig, ax = plt.subplots(figsize=(14, 6))
             missing_matrix = self.data[missing_cols].isnull().astype(int)
-
+            custom_cmap = sns.blend_palette(COLORY, as_cmap=True)
             sns.heatmap(
                 missing_matrix.T,
                 ax=ax,
-                cmap="YlOrRd",
+                cmap=custom_cmap,
                 cbar_kws={"label": "Missing (1) / Present (0)"},
                 linewidths=0.3,
                 yticklabels=missing_cols
             )
-            ax.set_title("Missing Values Matrix", fontsize=15, fontweight="bold")
+            ax.set_title("Missing Values Matrix", fontsize=15, color=ACCENT_CYAN)
             ax.set_xlabel("Row Index")
             ax.set_ylabel("Columns")
 
@@ -251,20 +286,20 @@ class DataVisualizer:
 
             fig, ax = plt.subplots(figsize=(max(8, len(num_cols)), max(6, len(num_cols) - 1)))
             mask = corr.isnull()  # Mask NaN values
-
+            custom_cmap = sns.blend_palette(COLORY, as_cmap=True)
             sns.heatmap(
                 corr,
                 ax=ax,
                 annot=True,
                 fmt=".2f",
-                cmap="coolwarm",
+                cmap=custom_cmap,
                 center=0,
                 mask=mask,
-                linewidths=0.5,
+                linewidths=1,
                 square=True,
                 cbar_kws={"shrink": 0.8}
             )
-            ax.set_title("Correlation Heatmap", fontsize=15, fontweight="bold")
+            ax.set_title("Correlation Heatmap", fontsize=15, fontweight="bold", color=ACCENT_PURPLE)
             plt.xticks(rotation=45, ha="right")
             plt.tight_layout()
 
@@ -308,10 +343,12 @@ class DataVisualizer:
                 color=color_col,
                 title=f"2D Scatter: {col1} vs {col2}" + (f" (colored by {color_col})" if color_col else ""),
                 opacity=0.7,
-                template="plotly_white",
+                color_discrete_sequence=COLORY,
+                template="plotly_dark",
                 hover_data=self.data.columns.tolist()
             )
-            fig.update_traces(marker=dict(size=6))
+            fig.update_traces(marker=dict(size=8, opacity=0.8, line=dict(width=1, color=BG_COLOR)))
+            self._apply_dark_layout_plotly(fig)
             fig.update_layout(title_font_size=16)
 
             print(f"Generating 2D Scatter: {col1} vs {col2}...")
@@ -351,11 +388,13 @@ class DataVisualizer:
                 y=col2,
                 z=col3,
                 color=color_col,
+                color_discrete_sequence=COLORY,
                 title=f"3D Scatter: {col1} / {col2} / {col3}",
                 opacity=0.75,
-                template="plotly_white"
+                template="plotly_dark"
             )
-            fig.update_traces(marker=dict(size=4))
+            fig.update_traces(marker=dict(size=4),line=dict(width=1, color=BG_COLOR))
+            self._apply_dark_layout_plotly(fig)
             fig.update_layout(title_font_size=16)
 
             print(f"Generating 3D Scatter: {col1} / {col2} / {col3}...")
@@ -392,7 +431,7 @@ class DataVisualizer:
                 raise ValueError(f"kind must be one of {valid_kinds}.")
 
             clean = self.data[[col1, col2]].dropna()
-            g = sns.jointplot(data=clean, x=col1, y=col2, kind=kind, height=8, palette="muted")
+            g = sns.jointplot(data=clean, x=col1, y=col2, kind=kind, height=8, color=ACCENT_CYAN, marginal_kws=dict(fill=True, color=ACCENT_PURPLE))
             g.fig.suptitle(f"Joint Plot: {col1} vs {col2} ({kind})", y=1.02, fontsize=14, fontweight="bold")
 
             print(f"Generating Joint Plot: {col1} vs {col2} ({kind})...")
@@ -432,7 +471,7 @@ class DataVisualizer:
             ylabel = "Proportion (%)" if normalize else "Count"
 
             fig, ax = plt.subplots(figsize=(12, 6))
-            ct.plot(kind="bar", stacked=True, ax=ax, colormap="tab20", edgecolor="white", linewidth=0.5)
+            ct.plot(kind="bar", stacked=True, ax=ax, colormap=custom_cmap, edgecolor="white", linewidth=0.5)
             ax.set_title(f"Stacked Bar: {col1} by {col2}", fontsize=14, fontweight="bold")
             ax.set_xlabel(col1)
             ax.set_ylabel(ylabel)
@@ -476,7 +515,7 @@ class DataVisualizer:
                 ax=ax,
                 annot=True,
                 fmt="d",
-                cmap="Blues",
+                cmap=custom_cmap,
                 linewidths=0.4,
                 cbar_kws={"label": "Count"}
             )
@@ -518,8 +557,8 @@ class DataVisualizer:
                 x=cat_col,
                 y=num_col,
                 ax=ax,
-                palette="muted",
-                inner="quartile"
+                palette="viridis",
+                inner="box"
             )
             ax.set_title(f"Violin Plot: {num_col} by {cat_col}", fontsize=14, fontweight="bold")
             plt.xticks(rotation=45, ha="right")
@@ -640,8 +679,9 @@ class DataVisualizer:
                 y=y,
                 size=size,
                 color=color,
+                color_discrete_sequence=PALETTE,
                 title=f"Bubble Chart: {x} vs {y} (size={size}" + (f", color={color}" if color else "") + ")",
-                template="plotly_white",
+                template="plotly_dark",
                 opacity=0.75,
                 size_max=60,
                 hover_data=self.data.columns.tolist()
