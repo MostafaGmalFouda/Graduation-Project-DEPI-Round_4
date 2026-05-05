@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BRight AI | Phase 2 — Visualization</title>
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+
+    <!-- Phase 1 base styles (variables, glass cards, buttons) -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+    <!-- Phase 2 specific styles -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/phase2_style.css') }}" />
+</head>
+
+<body>
+
+<!-- ═══════════════════════════════════════════════════════
+     MAIN PAGE WRAPPER
+════════════════════════════════════════════════════════ -->
+<div class="phase2-stage">
+
+    <!-- Page Header -->
+    <div class="phase2-header">
+        <a href="/" class="back-link">
+            <i class="fas fa-arrow-left"></i> Back to Phase 1
+        </a>
+
+        <div class="logo-top">BRight <span>AI</span></div>
+        <!-- <div class="phase2-badge">Phase 2 — Data Visualization</div> -->
+        <p>Advanced EDA Visualizations · Interactive Plots · Exportable Charts</p>
+    </div>
+
+
+    <!-- ═════════════════════════════════════
+         UPLOAD ZONE
+    ══════════════════════════════════════ -->
+    <div id="p2-upload-zone" class="upload-zone">
+        <!-- Animated upload icon -->
+        <div class="upload-icon">
+            <i class="fas fa-cloud-upload-alt"></i>
+        </div>
+        <h3>Drop Your Dataset Here</h3>
+        <p>Supports CSV, XLSX, XLS — Click or Drag &amp; Drop</p>
+        <!-- Hidden file input (triggered by zone click) -->
+        <input
+            type="file"
+            id="p2-file-input"
+            accept=".csv,.xlsx,.xls"
+            hidden
+        />
+        <!-- Filename shown after selection -->
+        <span class="upload-file-name" id="p2-file-name-label"></span>
+    </div>
+
+
+    <!-- ═════════════════════════════════════
+         COLUMNS DETECTION PANEL
+         (Visible after upload + schema scan)
+    ══════════════════════════════════════ -->
+    <div id="p2-columns-panel" class="columns-panel">
+        <div class="columns-panel-header">
+            <h3>
+                <i class="fas fa-table" style="margin-right:8px;"></i>
+                Detected Schema
+            </h3>
+            <div class="dataset-meta">
+                <!-- Filled by JS from backend response -->
+                <div class="meta-chip">
+                    <i class="fas fa-rows"></i>
+                    <span id="p2-meta-rows">—</span>
+                </div>
+                <div class="meta-chip">
+                    <i class="fas fa-columns"></i>
+                    <span id="p2-meta-cols">—</span>
+                </div>
+            </div>
+        </div>
+        <!-- Column chips injected here by phase2_logic.js -->
+        <div class="columns-grid" id="p2-columns-chips"></div>
+    </div>
+
+
+    <!-- ═════════════════════════════════════
+         VISUALIZATION TABS SECTION
+         (Visible after successful upload)
+    ══════════════════════════════════════ -->
+    <div id="p2-viz-tabs" class="viz-tabs-wrapper">
+
+        <!-- Tab Navigation -->
+        <nav class="viz-tabs-nav" role="tablist" aria-label="Visualization Categories">
+            <button class="tab-btn" data-tab="general"   role="tab" aria-selected="true">
+                <i class="fas fa-layer-group"></i> General
+            </button>
+            <button class="tab-btn" data-tab="numerical" role="tab">
+                <i class="fas fa-chart-line"></i> Numerical
+            </button>
+            <button class="tab-btn" data-tab="categorical" role="tab">
+                <i class="fas fa-chart-bar"></i> Categorical
+            </button>
+        </nav>
+
+
+        <!-- ══════════════════════════════
+             TAB 1: GENERAL
+        ════════════════════════════════ -->
+        <div id="tab-general" class="tab-panel active">
+
+            <div class="chart-config-grid">
+
+                <!-- Card: Summary Dashboard -->
+                <div class="chart-config-card">
+                    <div class="chart-card-title">
+                        <i class="fas fa-tachometer-alt"></i>
+                        Summary Dashboard
+                    </div>
+                    <p style="font-size:12px;color:var(--txt-dim);margin-bottom:14px;line-height:1.7;">
+                        Generates a full overview with histograms for numeric columns
+                        and bar charts for categorical columns — all in one panel.
+                    </p>
+                    <button class="generate-btn" onclick="generateSummaryDashboard()">
+                        <i class="fas fa-bolt"></i> Generate Dashboard
+                    </button>
+                </div>
+
+                <!-- Card: Correlation Heatmap -->
+                <div class="chart-config-card">
+                    <div class="chart-card-title">
+                        <i class="fas fa-fire"></i>
+                        Correlation Heatmap
+                    </div>
+                    <p style="font-size:12px;color:var(--txt-dim);margin-bottom:14px;line-height:1.7;">
+                        Annotated heatmap showing Pearson correlations between all
+                        numeric columns. Reveals multicollinearity patterns.
+                    </p>
+                    <button class="generate-btn" onclick="generateCorrelationHeatmap()">
+                        <i class="fas fa-bolt"></i> Generate Heatmap
+                    </button>
+                </div>
+
+            </div>
+
+            <!-- Result containers for general charts - dashboard grid -->
+            <div id="results-dashboard-general" class="viz-dashboard-grid">
+                <div id="result-summary"     class="viz-results-area"></div>
+                <div id="result-correlation" class="viz-results-area"></div>
+            </div>
+
+        </div><!-- /tab-general -->
+
+
+        <!-- ══════════════════════════════
+             TAB 2: NUMERICAL
+        ════════════════════════════════ -->
+        <div id="tab-numerical" class="tab-panel">
+
+            <div class="chart-config-grid">
+
+                <!-- Card: 2D Scatter -->
+                <div class="chart-config-card">
+                    <div class="chart-card-title">
+                        <i class="fas fa-dot-circle"></i>
+                        2D Scatter Plot
+                    </div>
+
+                    <div class="form-group">
+                        <label for="scatter2d-x">X Axis</label>
+                        <select id="scatter2d-x" class="form-select"></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="scatter2d-y">Y Axis</label>
+                        <select id="scatter2d-y" class="form-select"></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="scatter2d-color">Color By (optional)</label>
+                        <select id="scatter2d-color" class="form-select"></select>
+                    </div>
+
+                    <button class="generate-btn" onclick="generateScatter2D()">
+                        <i class="fas fa-bolt"></i> Generate
+                    </button>
+                </div>
+
+                <!-- Card: 3D Scatter -->
+                <div class="chart-config-card">
+                    <div class="chart-card-title">
+                        <i class="fas fa-cube"></i>
+                        3D Scatter Plot
+                    </div>
+
+                    <div class="form-group">
+                        <label for="scatter3d-x">X Axis</label>
+                        <select id="scatter3d-x" class="form-select"></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="scatter3d-y">Y Axis</label>
+                        <select id="scatter3d-y" class="form-select"></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="scatter3d-z">Z Axis</label>
+                        <select id="scatter3d-z" class="form-select"></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="scatter3d-color">Color By (optional)</label>
+                        <select id="scatter3d-color" class="form-select"></select>
+                    </div>
+
+                    <button class="generate-btn" onclick="generateScatter3D()">
+                        <i class="fas fa-bolt"></i> Generate
+                    </button>
+                </div>
+
+                <!-- Card: Joint Plot -->
+                <div class="chart-config-card">
+                    <div class="chart-card-title">
+                        <i class="fas fa-project-diagram"></i>
+                        Joint Distribution Plot
+                    </div>
+
+                    <div class="form-group">
+                        <label for="joint-col1">Column 1</label>
+                        <select id="joint-col1" class="form-select"></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="joint-col2">Column 2</label>
+                        <select id="joint-col2" class="form-select"></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="joint-kind">Plot Kind</label>
+                        <select id="joint-kind" class="form-select">
+                            <option value="scatter">Scatter</option>
+                            <option value="kde">KDE</option>
+                            <option value="hex">Hex</option>
+                            <option value="reg">Regression</option>
+                        </select>
+                    </div>
+
+                    <button class="generate-btn" onclick="generateJointPlot()">
+                        <i class="fas fa-bolt"></i> Generate
+                    </button>
+                </div>
+
+            </div>
+
+            <!-- Result containers for numerical charts - dashboard grid -->
+            <div id="results-dashboard-numerical" class="viz-dashboard-grid">
+                <div id="result-scatter2d" class="viz-results-area"></div>
+                <div id="result-scatter3d" class="viz-results-area"></div>
+                <div id="result-joint"     class="viz-results-area"></div>
+            </div>
+
+        </div><!-- /tab-numerical -->
+
+
+        <!-- ══════════════════════════════
+             TAB 3: CATEGORICAL
+        ════════════════════════════════ -->
+        <div id="tab-categorical" class="tab-panel">
+
+            <div class="chart-config-grid">
+
+                <!-- Card: Stacked Bar -->
+                <div class="chart-config-card">
+                    <div class="chart-card-title">
+                        <i class="fas fa-chart-bar"></i>
+                        Stacked Bar Chart
+                    </div>
+
+                    <div class="form-group">
+                        <label for="stacked-col1">Primary Column</label>
+                        <select id="stacked-col1" class="form-select"></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="stacked-col2">Secondary Column</label>
+                        <select id="stacked-col2" class="form-select"></select>
+                    </div>
+                    <div class="form-check">
+                        <input type="checkbox" id="stacked-normalize" />
+                        <label for="stacked-normalize">Normalize (show proportions)</label>
+                    </div>
+
+                    <button class="generate-btn" onclick="generateStackedBar()">
+                        <i class="fas fa-bolt"></i> Generate
+                    </button>
+                </div>
+
+                <!-- Card: Cross Tabulation -->
+                <div class="chart-config-card">
+                    <div class="chart-card-title">
+                        <i class="fas fa-th"></i>
+                        Cross Tabulation Heatmap
+                    </div>
+
+                    <div class="form-group">
+                        <label for="crosstab-col1">Row Variable</label>
+                        <select id="crosstab-col1" class="form-select"></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="crosstab-col2">Column Variable</label>
+                        <select id="crosstab-col2" class="form-select"></select>
+                    </div>
+
+                    <button class="generate-btn" onclick="generateCrossTab()">
+                        <i class="fas fa-bolt"></i> Generate
+                    </button>
+                </div>
+
+                <!-- Card: Violin Plot -->
+                <div class="chart-config-card">
+                    <div class="chart-card-title">
+                        <i class="fas fa-music"></i>
+                        Violin Plot
+                    </div>
+
+                    <div class="form-group">
+                        <label for="violin-num">Numeric Column (Y-axis)</label>
+                        <select id="violin-num" class="form-select"></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="violin-cat">Category Column (Groups)</label>
+                        <select id="violin-cat" class="form-select"></select>
+                    </div>
+
+                    <button class="generate-btn" onclick="generateViolinPlot()">
+                        <i class="fas fa-bolt"></i> Generate
+                    </button>
+                </div>
+
+                <!-- Card: Facet Grid -->
+                <div class="chart-config-card">
+                    <div class="chart-card-title">
+                        <i class="fas fa-border-all"></i>
+                        Facet Grid
+                    </div>
+
+                    <div class="form-group">
+                        <label for="facet-numcols">
+                            Numeric Columns
+                            <span style="opacity:0.5;font-size:10px;"> — Hold Ctrl/⌘ to pick multiple (max 6)</span>
+                        </label>
+                        <!-- Multi-select for numeric columns -->
+                        <select
+                            id="facet-numcols"
+                            class="form-select"
+                            multiple
+                            style="height: 110px;background:rgba(0,0,0,0.3);"
+                        ></select>
+                        <p style="font-size:10px;color:var(--txt-dim);margin-top:5px;letter-spacing:0.5px;">
+                            <i class="fas fa-info-circle" style="color:var(--phase2-accent);margin-right:4px;"></i>
+                            Tip: Select 2–4 columns for best results
+                        </p>
+                    </div>
+                    <div class="form-group">
+                        <label for="facet-cat">Facet Category</label>
+                        <select id="facet-cat" class="form-select"></select>
+                    </div>
+
+                    <button class="generate-btn" onclick="generateFacetGrid()">
+                        <i class="fas fa-bolt"></i> Generate
+                    </button>
+                </div>
+
+                <!-- Card: Bubble Chart -->
+                <div class="chart-config-card">
+                    <div class="chart-card-title">
+                        <i class="fas fa-circle"></i>
+                        Bubble Chart
+                    </div>
+
+                    <div class="form-group">
+                        <label for="bubble-x">X Axis</label>
+                        <select id="bubble-x" class="form-select"></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="bubble-y">Y Axis (Numeric)</label>
+                        <select id="bubble-y" class="form-select"></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="bubble-size">Bubble Size (Numeric)</label>
+                        <select id="bubble-size" class="form-select"></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="bubble-color">Color By (optional)</label>
+                        <select id="bubble-color" class="form-select"></select>
+                    </div>
+
+                    <button class="generate-btn" onclick="generateBubbleChart()">
+                        <i class="fas fa-bolt"></i> Generate
+                    </button>
+                </div>
+
+            </div>
+
+            <!-- Result containers for categorical charts - dashboard grid -->
+            <div id="results-dashboard-categorical" class="viz-dashboard-grid">
+                <div id="result-stacked"  class="viz-results-area"></div>
+                <div id="result-crosstab" class="viz-results-area"></div>
+                <div id="result-violin"   class="viz-results-area"></div>
+                <div id="result-facet"    class="viz-results-area"></div>
+                <div id="result-bubble"   class="viz-results-area"></div>
+            </div>
+
+        </div><!-- /tab-categorical -->
+
+    </div><!-- /viz-tabs-wrapper -->
+
+</div><!-- /phase2-stage -->
+
+
+<!-- Chart Lightbox Modal -->
+<div id="chart-lightbox" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.92);backdrop-filter:blur(8px);cursor:zoom-out;" onclick="closeLightbox()">
+    <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);max-width:95vw;max-height:92vh;width:auto;" onclick="event.stopPropagation()">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+            <span id="lightbox-title" style="font-size:11px;letter-spacing:2px;color:#00e5ff;text-transform:uppercase;"></span>
+            <div style="display:flex;gap:8px;">
+                <a id="lightbox-open" href="#" target="_blank" style="padding:6px 14px;border:1px solid rgba(0,229,255,0.4);border-radius:8px;font-size:10px;color:#00e5ff;text-decoration:none;font-weight:700;letter-spacing:1px;">
+                    <i class="fas fa-external-link-alt"></i> Open Tab
+                </a>
+                <button onclick="closeLightbox()" style="padding:6px 14px;border:1px solid rgba(255,64,129,0.4);border-radius:8px;font-size:10px;color:#ff4081;background:transparent;cursor:pointer;font-weight:700;letter-spacing:1px;font-family:Inter,sans-serif;">
+                    <i class="fas fa-times"></i> Close
+                </button>
+            </div>
+        </div>
+        <img id="lightbox-img" src="" style="display:none;max-width:90vw;max-height:80vh;border-radius:12px;object-fit:contain;" />
+        <iframe id="lightbox-iframe" src="" style="display:none;width:88vw;height:78vh;border:none;border-radius:12px;background:#fff;"></iframe>
+    </div>
+</div>
+
+<!-- Phase 2 Logic Script -->
+<script src="{{ url_for('static', filename='scripts/phase2_logic.js') }}"></script>
+
+</body>
+</html>

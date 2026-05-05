@@ -25,19 +25,18 @@ function updateStage(stageName, message, progress = 0) {
             item.querySelector(".stage-info p").innerText = message;
             if (stageName === stagesOrder[stagesOrder.length - 1] && progress === 100) {
                 setTimeout(() => {
-                    // item.classList.remove("active");
                     item.classList.add("completed");
                     item.querySelector(".stage-status i").className = "fas fa-check-double";
                     item.querySelector(".stage-info p").innerText = "Verified ✓";
-                }, 300); 
+                }, 300);
             }
         } else if (stagesOrder.indexOf(name) < stagesOrder.indexOf(stageName)) {
             setTimeout(() => {
-            item.classList.add("completed");
-            item.querySelector(".stage-status i").className = "fas fa-check-double";
-            item.querySelector(".stage-info p").innerText = "Verified ✓";
-        }, 90);  }
-        
+                item.classList.add("completed");
+                item.querySelector(".stage-status i").className = "fas fa-check-double";
+                item.querySelector(".stage-info p").innerText = "Verified ✓";
+            }, 90);
+        }
     });
 
     const consoleBox = document.getElementById("pipeline-console");
@@ -49,12 +48,18 @@ function updateStage(stageName, message, progress = 0) {
         consoleBox.appendChild(log);
         consoleBox.scrollTop = consoleBox.scrollHeight;
     }
-    
 }
 
+/**
+ * Start pipeline SSE stream.
+ * If file is null, the backend uses the raw DF already stored in the session.
+ */
 async function startPipelineStream(file) {
     const formData = new FormData();
-    formData.append("file", file);
+    // Only append file if provided (first-time upload without prior /process call)
+    if (file) {
+        formData.append("file", file);
+    }
 
     try {
         const res = await fetch("/pipeline-stream", { method: "POST", body: formData });
@@ -74,15 +79,12 @@ async function startPipelineStream(file) {
                 if (!p.trim()) continue;
                 const json = JSON.parse(p.replace("data:", "").trim());
 
-               
                 if (json.stage) {
                     updateStage(json.stage, json.message, json.progress);
                 }
 
                 if (json.done) {
                     updateStage("Report Generated", "Final Intelligence Deployed", 100);
-
-                
                     if (typeof handleFinalReport === "function") {
                         handleFinalReport(json);
                     }

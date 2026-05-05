@@ -11,5 +11,17 @@ Data.xlsx
 *.xlsx
 *.json
 
+*.mp4
+*.avi
+*.mkv
+*.mov
 
 .ipynb_checkpoints/
+
+reports/
+Phase_2/plots/
+
+session_data/
+
+
+*.pdf

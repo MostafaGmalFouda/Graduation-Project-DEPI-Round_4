@@ -47,9 +47,8 @@
         <header class="hero-section">
             <div class="logo-top">BRight <span>AI</span></div>
             <p>Intelligence Redefined for Your Datasets</p>
+            <!-- Phase 2 button REMOVED from header — shown only after pipeline completes -->
         </header>
-
-
 
         <form id="main-ai-form" class="main-layout" enctype="multipart/form-data">
 
@@ -61,10 +60,15 @@
                     </div>
                     <p id="file-status">Select Data File (CSV/Excel)</p>
                     <input type="file" id="real-file" name="file" hidden accept=".csv, .xlsx, .xls">
-                    <button type="button" class="action-btn cyan-btn"
-                        onclick="document.getElementById('real-file').click()">
-                        <i class="fas fa-search"></i> Browse
-                    </button>
+                    <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:4px;">
+                        <button type="button" class="action-btn cyan-btn" onclick="document.getElementById('real-file').click()">
+                            <i class="fas fa-search"></i> Browse
+                        </button>
+                        <!-- <button type="button" id="clear-file-btn" onclick="clearSelectedFile()"
+                            style="display:none;background:rgba(255,64,129,0.12);border:1px solid rgba(255,64,129,0.4);color:#ff4081;padding:8px 18px;border-radius:10px;font-size:10px;font-weight:700;letter-spacing:1.5px;cursor:pointer;transition:all 0.3s;text-transform:uppercase;font-family:Inter,sans-serif;">
+                            <i class="fas fa-times"></i> Clear Data
+                        </button> -->
+                    </div>
                 </div>
             </div>
 
@@ -116,17 +120,6 @@
         </div>
 
     </div>
-    <div id="results-area" class="glass-card result-container" style="display: none;">
-    </div>
-
-    <div id="results-area" class="glass-card result-container" style="display: none;">
-        <div class="card-header cyan-glow">INITIAL PREVIEW</div>
-        <div id="table-preview" class="table-scroll"></div>
-        <div class="action-footer">
-            <a href="#" id="view-btn" target="_blank" class="action-btn cyan-btn">View Preview</a>
-            <a href="#" id="download-btn" class="action-btn purple-btn">Download Preview</a>
-        </div>
-    </div>
 
     <div id="pipeline-dashboard" class="pipeline-dashboard-grid" style="display: none; margin-top: 30px;">
         <div class="pipeline-stages-side">
@@ -136,23 +129,31 @@
             <div id="pipeline-console" class="log-console"></div>
         </div>
     </div>
-<div id="pipeline-results" class="glass-card result-container final-report-card" style="display: none;">
-    <div class="card-header purple-glow">REPORT DEPLOYED</div>
-    
-    <div class="stats-bar">
-        <i class="fas fa-check-circle" style="color: var(--neon-c);"></i>
-        <span id="pipe-res-stats">Engine Analysis Complete</span>
-    </div>
 
-    <div class="action-footer">
-        <a id="pipe-view-btn" href="#" target="_blank" class="action-btn cyan-btn">
-            <i class="fas fa-eye"></i> VIEW
-        </a>
-        <a id="pipe-download-btn" href="#" download class="action-btn purple-btn">
-            <i class="fas fa-download"></i> DOWNLOAD
-        </a>
+    <div id="pipeline-results" class="glass-card result-container final-report-card" style="display: none;">
+        <div class="card-header purple-glow">REPORT DEPLOYED</div>
+        
+        <div class="stats-bar">
+            <i class="fas fa-check-circle" style="color: var(--neon-c);"></i>
+            <span id="pipe-res-stats">Engine Analysis Complete</span>
+        </div>
+
+        <div class="action-footer">
+            <a id="pipe-view-btn" href="#" target="_blank" class="action-btn cyan-btn">
+                <i class="fas fa-eye"></i> VIEW
+            </a>
+            <a id="pipe-download-btn" href="#" download class="action-btn purple-btn">
+                <i class="fas fa-download"></i> DOWNLOAD
+            </a>
+        </div>
+
+        <!-- Phase 2 button — appears ONLY after pipeline is done -->
+        <div class="action-footer" style="margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,0.06);">
+            <a href="/phase2" class="action-btn cyan-btn" style="text-decoration:none;display:inline-flex;align-items:center;gap:8px;">
+                <i class="fas fa-chart-bar"></i> Phase 2 — Visualization
+            </a>
+        </div>
     </div>
-</div>
 
     <div class="stream-wrapper">
         <button type="button" id="stream-btn" class="action-btn purple-btn" style="display: none; margin-top:20px;">
@@ -165,37 +166,83 @@
     <script src="{{ url_for('static', filename='scripts/pipeline_logic.js') }}"></script>
     <script>
         AOS.init();
-        const fileInput = document.getElementById('real-file');
-        const fileStatus = document.getElementById('file-status');
-        const statusLabel = document.querySelector('.status-label');
-        const startBtn = document.getElementById('start-btn');
-        const resultsArea = document.getElementById('results-area');
-        const errorBox = document.getElementById('error-message');
-        const streamBtn = document.getElementById('stream-btn');
-        const streamWrapper = document.querySelector('.stream-wrapper');
-        const dashboard = document.getElementById('pipeline-dashboard');
+        const fileInput    = document.getElementById('real-file');
+        const fileStatus   = document.getElementById('file-status');
+        const statusLabel  = document.querySelector('.status-label');
+        const startBtn     = document.getElementById('start-btn');
+        const resultsArea  = document.getElementById('results-area');
+        const errorBox     = document.getElementById('error-message');
+        const streamBtn    = document.getElementById('stream-btn');
+        const streamWrapper= document.querySelector('.stream-wrapper');
+        const dashboard    = document.getElementById('pipeline-dashboard');
 
-        // 1. Intro Screen
+        // ── Intro screen ──────────────────────────────────────────────
+        const loadingSteps = [
+            "INITIALIZING CORE...",
+            "LOADING NEURAL MATRIX...",
+            "CALIBRATING DATA ENGINE...",
+            "MOUNTING AI MODULES...",
+            "SYSTEM READY"
+        ];
         window.addEventListener('load', () => {
             const counterElement = document.getElementById('load-pc');
-            let count = 0;
+            const statusText = document.querySelector('.status-text');
+            let count = 0, stepIdx = 0;
+
             const loaderInterval = setInterval(() => {
                 count++;
                 if (counterElement) counterElement.innerText = count + "%";
+                const milestone = Math.floor(count / 20);
+                if (milestone !== stepIdx && milestone < loadingSteps.length) {
+                    stepIdx = milestone;
+                    if (statusText) {
+                        statusText.style.opacity = '0';
+                        setTimeout(() => {
+                            statusText.innerText = loadingSteps[stepIdx];
+                            statusText.style.opacity = '1';
+                        }, 200);
+                    }
+                }
                 if (count === 100) clearInterval(loaderInterval);
             }, 38);
+
             setTimeout(() => {
-                document.getElementById('intro-screen').style.opacity = '0';
+                const intro = document.getElementById('intro-screen');
+                intro.style.transition = 'opacity 0.6s ease';
+                intro.style.opacity = '0';
                 document.getElementById('main-app').style.display = 'block';
                 setTimeout(() => {
                     document.getElementById('main-app').style.opacity = '1';
                     document.body.style.overflow = 'auto';
-                    document.getElementById('intro-screen').remove();
-                }, 100);
-            }, 4500);
+                    intro.remove();
+                }, 600);
+            }, 4200);
         });
 
-        
+        // ── Clear file & session data ─────────────────────────────────
+        async function clearSelectedFile() {
+            // Tell backend to clear session data
+            await fetch('/clear-data', { method: 'POST' });
+
+            fileInput.value = "";
+            fileStatus.innerText = "Select Data File (CSV/Excel)";
+            fileStatus.style.color = "";
+            document.getElementById('clear-file-btn').style.display = "none";
+            resultsArea.style.display = "none";
+            if (dashboard) dashboard.style.display = "none";
+            const pipeResults = document.getElementById('pipeline-results');
+            if (pipeResults) pipeResults.style.display = "none";
+            streamBtn.style.display = "none";
+            streamBtn.disabled = false;
+            streamBtn.innerText = "LIVE PIPELINE";
+            streamWrapper.classList.remove('loading');
+            statusLabel.innerText = "ENGINE READY";
+            statusLabel.style.color = "var(--neon-c)";
+            errorBox.style.display = "none";
+            if (typeof resetPipeline === 'function') resetPipeline();
+        }
+
+        // ── File selection ────────────────────────────────────────────
         fileInput.onchange = () => {
             errorBox.style.display = "none";
             errorBox.innerText = "";
@@ -203,36 +250,26 @@
             if (fileInput.files.length > 0) {
                 fileStatus.innerText = "Selected: " + fileInput.files[0].name;
                 fileStatus.style.color = "#14ffd0";
+                document.getElementById('clear-file-btn').style.display = "inline-block";
 
-                
                 resultsArea.style.display = "none";
-
-                
-                const dashboard = document.getElementById('pipeline-dashboard');
                 if (dashboard) dashboard.style.display = "none";
-
-                
                 const pipeResults = document.getElementById('pipeline-results');
                 if (pipeResults) pipeResults.style.display = "none";
-
-              
                 streamBtn.style.display = "none";
                 streamBtn.disabled = false;
                 streamBtn.innerText = "LIVE PIPELINE";
                 streamWrapper.classList.remove('loading');
-                statusLabel.innerText = "ENGINE READY"; 
+                statusLabel.innerText = "ENGINE READY";
                 statusLabel.style.color = "var(--neon-c)";
-                
                 if (typeof resetPipeline === 'function') resetPipeline();
-
             } else {
                 fileStatus.innerText = "Select Data File (CSV/Excel)";
                 fileStatus.style.color = "";
             }
         };
 
-
-        // 3. START ENGINE (Preview)
+        // ── START ENGINE (preview) ────────────────────────────────────
         document.getElementById('main-ai-form').onsubmit = async (e) => {
             e.preventDefault();
             errorBox.style.display = "none";
@@ -250,7 +287,7 @@
 
             try {
                 const response = await fetch('/process', { method: 'POST', body: formData });
-                const result = await response.json();
+                const result   = await response.json();
 
                 if (result.status === "success") {
                     statusLabel.innerText = "ENGINE COMPLETE";
@@ -259,11 +296,10 @@
                     document.getElementById('table-preview').innerHTML = result.preview;
                     document.getElementById('res-rows').innerText = "Rows: " + result.rows;
                     document.getElementById('res-cols').innerText = "Cols: " + result.cols;
-
-                    // روابط التقرير الأولية
-                    document.getElementById('view-btn').href = result.view_url;
+                    document.getElementById('view-btn').href     = result.view_url;
                     document.getElementById('download-btn').href = result.download_url;
 
+                    // Show pipeline button
                     streamBtn.style.display = "inline-block";
                     streamBtn.scrollIntoView({ behavior: 'smooth' });
                 } else {
@@ -273,137 +309,76 @@
             } catch (err) {
                 errorBox.innerText = "Connection Failed!";
                 errorBox.style.display = "block";
-            }
-            finally {
+            } finally {
                 startBtn.disabled = false;
             }
         };
-        
-        const actionSelect = document.querySelector('select[name="action_type"]');
 
-        actionSelect.onchange = () => {
-            
-            resultsArea.style.display = "none";
-            if (dashboard) dashboard.style.display = "none";
-            const pipeResults = document.getElementById('pipeline-results');
-            if (pipeResults) pipeResults.style.display = "none";
-
-            
-            streamBtn.style.display = "none";
-
-            
-            statusLabel.innerText = "ENGINE READY";
-            statusLabel.style.color = "var(--neon-c)";
-            renderPipeline();
-            startPipelineStream(file);
-           
-        };
-
-        // 4. LIVE PIPELINE (The Stream)
-
-
-        
+        // ── LIVE PIPELINE ─────────────────────────────────────────────
         streamBtn.onclick = () => {
-            const file = fileInput.files[0];
-            if (file) {
-               
-                document.getElementById('pipeline-dashboard').style.display = 'grid';
+            // Pipeline runs on session data — no file re-upload needed
+            dashboard.style.display = 'grid';
+            streamWrapper.classList.add('loading');
+            streamBtn.innerText = "ENGINE RUNNING...";
+            streamBtn.disabled = true;
+            dashboard.scrollIntoView({ behavior: 'smooth' });
 
-               
-                streamWrapper.classList.add('loading');
-                streamBtn.innerText = "ENGINE RUNNING...";
-                streamBtn.disabled = true;
-
-               
-                document.getElementById('pipeline-dashboard').scrollIntoView({ behavior: 'smooth' });
-
-                renderPipeline();
-                startPipelineStream(file);
-            }
+            renderPipeline();
+            // Pass null so pipeline_logic uses session data (no file)
+            startPipelineStream(null);
         };
+
         function resetPipeline() {
             const consoleBox = document.getElementById("pipeline-console");
-            
             if (consoleBox) {
                 consoleBox.innerHTML = '<div class="log-entry">System Standby. Ready for injection.</div>';
             }
-
-            
             document.querySelectorAll(".stage-item").forEach(item => {
                 item.classList.remove("active", "completed");
                 const p = item.querySelector(".stage-info p");
                 if (p) p.innerText = "Waiting for engine...";
             });
         }
-        function restartPipelineUI() {
-            const streamBtn = document.getElementById('stream-btn');
-            const streamWrapper = document.querySelector('.stream-wrapper');
-            const dashboard = document.getElementById('pipeline-dashboard');
-            const pipeResults = document.getElementById('pipeline-results');
 
-           
+        function restartPipelineUI() {
             streamBtn.disabled = false;
             streamBtn.innerText = "RUN NEW PIPELINE";
             streamBtn.style.background = "var(--neon-p)";
-
-            
             streamWrapper.classList.remove('loading');
-
-            
             dashboard.style.display = 'none';
-            pipeResults.style.display = 'none';
-
-            
+            document.getElementById('pipeline-results').style.display = 'none';
             resetPipeline();
 
-            
             streamBtn.onclick = () => {
-                const file = fileInput.files[0];
-                if (file) {
-                    
-                    document.getElementById('pipeline-dashboard').style.display = 'grid';
-
-                    
-                    streamWrapper.classList.add('loading');
-                    streamBtn.innerText = "ENGINE RUNNING...";
-                    streamBtn.disabled = true;
-
-                    
-                    document.getElementById('pipeline-dashboard').scrollIntoView({ behavior: 'smooth' });
-
-                    renderPipeline();
-                    startPipelineStream(file);
-                }
+                dashboard.style.display = 'grid';
+                streamWrapper.classList.add('loading');
+                streamBtn.innerText = "ENGINE RUNNING...";
+                streamBtn.disabled = true;
+                dashboard.scrollIntoView({ behavior: 'smooth' });
+                renderPipeline();
+                startPipelineStream(null);
             };
         }
-        
+
         function handleFinalReport(data) {
-            const streamWrapper = document.querySelector('.stream-wrapper');
-            const streamBtn = document.getElementById('stream-btn');
-
             if (streamWrapper) streamWrapper.classList.remove('loading');
-
             if (streamBtn) {
                 streamBtn.innerText = "RESTART ENGINE";
                 streamBtn.disabled = false;
-                streamBtn.style.background = "#07cda5"; 
-
-                
+                streamBtn.style.background = "#07cda5";
                 streamBtn.onclick = () => restartPipelineUI();
             }
-
-           
             const pipeResults = document.getElementById('pipeline-results');
             pipeResults.style.display = 'block';
-
-            document.getElementById('pipe-view-btn').href = data.view_url;
+            document.getElementById('pipe-view-btn').href     = data.view_url;
             document.getElementById('pipe-download-btn').href = data.download_url;
-
+            if (data.rows && data.cols) {
+                document.getElementById('pipe-res-stats').innerText =
+                    `Clean Data: ${data.rows} rows × ${data.cols} columns`;
+            }
             pipeResults.scrollIntoView({ behavior: 'smooth' });
         }
     </script>
-
-    <script src="{{ url_for('static', filename='scripts/pipeline_logic.js') }}"></script>
 </body>
 
 </html>
