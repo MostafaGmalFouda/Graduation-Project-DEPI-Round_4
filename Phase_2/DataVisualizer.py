@@ -2,7 +2,7 @@ import os
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib
-matplotlib.use('Agg')  # Non-interactive backend — safe for saving without display
+matplotlib.use('Agg')
 import seaborn as sns
 import plotly.express as px
 import plotly.graph_objects as go
@@ -694,3 +694,481 @@ class DataVisualizer:
 
         except Exception as e:
             raise Exception(f"Error in plot_bubble_chart: {e}")
+    
+    # //////////////////////////////////////////////////
+   # ================================================================
+    #                  AUTOMATIC DASHBOARD
+    # ================================================================
+
+    def generate_automatic_dashboard(self, save: bool = True) -> str:
+        """
+        Generates a comprehensive automatic EDA dashboard with as many
+        relevant plots as possible, grouped into sections.
+        """
+        try:
+            print("🚀 Generating Automatic EDA Dashboard...")
+
+            plots_generated = []   # list of (section, title, path, size)
+            # size: "wide" | "half" | "third"
+
+            num_cols = self._get_cols_by_type(self._NUM)
+            cat_cols = self._get_cols_by_type(self._CAT)
+
+            # ── 1. OVERVIEW ────────────────────────────────────────────────────
+            try:
+                p = self.generate_summary_dashboard(save=True)
+                if p: plots_generated.append(("overview", "📊 Summary Overview", p, "wide"))
+            except Exception as e:
+                print(f"Warning: summary dashboard: {e}")
+
+            try:
+                p = self.plot_correlation_heatmap(save=True)
+                if p: plots_generated.append(("overview", "🔥 Correlation Heatmap", p, "half"))
+            except: pass
+
+            try:
+                p = self.plot_missing_values_matrix(save=True)
+                if p: plots_generated.append(("overview", "❓ Missing Values Matrix", p, "half"))
+            except: pass
+
+            # ── 2. NUMERIC DISTRIBUTIONS ────────────────────────────────────────
+            for col in num_cols[:8]:
+                try:
+                    p = self._plot_single_distribution(col)
+                    if p: plots_generated.append(("numeric", f"📈 Distribution: {col}", p, "third"))
+                except: pass
+
+            # ── 3. NUMERIC RELATIONSHIPS ────────────────────────────────────────
+            if len(num_cols) >= 2:
+                # Scatter pairs (up to 6)
+                pairs = [(num_cols[i], num_cols[j])
+                         for i in range(len(num_cols))
+                         for j in range(i+1, len(num_cols))]
+                for col1, col2 in pairs[:6]:
+                    try:
+                        p = self.plot_scatter_2d(col1, col2, save=True)
+                        if p: plots_generated.append(("numeric", f"🔵 Scatter: {col1} vs {col2}", p, "half"))
+                    except: pass
+
+                # Joint plot (first pair)
+                try:
+                    p = self.plot_joint_plot(num_cols[0], num_cols[1], save=True)
+                    if p: plots_generated.append(("numeric", f"🔗 Joint: {num_cols[0]} & {num_cols[1]}", p, "half"))
+                except: pass
+
+                # 3D scatter if 3+ numeric cols
+                if len(num_cols) >= 3:
+                    try:
+                        p = self.plot_scatter_3d(num_cols[0], num_cols[1], num_cols[2], save=True)
+                        if p: plots_generated.append(("numeric", f"🌐 3D Scatter", p, "half"))
+                    except: pass
+
+            # ── 4. CATEGORICAL OVERVIEWS ─────────────────────────────────────────
+            for col in cat_cols[:6]:
+                try:
+                    p = self._plot_single_categorical(col)
+                    if p: plots_generated.append(("categorical", f"🏷️ {col} Distribution", p, "third"))
+                except: pass
+
+            # Stacked bar (first two cat cols)
+            if len(cat_cols) >= 2:
+                for i in range(min(3, len(cat_cols)-1)):
+                    try:
+                        p = self.plot_stacked_bar(cat_cols[i], cat_cols[i+1], save=True)
+                        if p: plots_generated.append(("categorical", f"📊 Stacked: {cat_cols[i]} × {cat_cols[i+1]}", p, "half"))
+                    except: pass
+
+                try:
+                    p = self.plot_cross_tabulation(cat_cols[0], cat_cols[1], save=True)
+                    if p: plots_generated.append(("categorical", f"🗂️ Cross-Tab: {cat_cols[0]} × {cat_cols[1]}", p, "half"))
+                except: pass
+
+            # ── 5. MIXED — NUM × CAT ────────────────────────────────────────────
+            if num_cols and cat_cols:
+                # Violin for each num × first cat (up to 4)
+                for num_col in num_cols[:4]:
+                    try:
+                        p = self.plot_violin_plot_by_category(num_col, cat_cols[0], save=True)
+                        if p: plots_generated.append(("mixed", f"🎻 Violin: {num_col} by {cat_cols[0]}", p, "half"))
+                    except: pass
+
+                # Facet grid (first 3 num cols × first cat)
+                if len(num_cols) >= 2:
+                    try:
+                        facet_nums = num_cols[:min(3, len(num_cols))]
+                        p = self.plot_facet_grid(facet_nums, cat_cols[0], save=True)
+                        if p: plots_generated.append(("mixed", f"⊞ Facet Grid by {cat_cols[0]}", p, "wide"))
+                    except: pass
+
+                # Bubble chart (3 num cols needed)
+                if len(num_cols) >= 3:
+                    try:
+                        p = self.plot_bubble_chart(num_cols[0], num_cols[1], num_cols[2],
+                                                    color=cat_cols[0] if cat_cols else None, save=True)
+                        if p: plots_generated.append(("mixed", f"🫧 Bubble Chart", p, "half"))
+                    except: pass
+
+            print(f"✅ Automatic Dashboard: {len(plots_generated)} plots generated.")
+
+            if save and plots_generated:
+                return self._create_dashboard_html(plots_generated)
+            return None
+
+        except Exception as e:
+            raise Exception(f"Error in automatic dashboard: {e}")
+
+    # ── helpers for single-column mini plots ────────────────────────────────
+    def _plot_single_distribution(self, col: str) -> str:
+        """Small histogram + KDE for one numeric column."""
+        fig, ax = plt.subplots(figsize=(5, 3))
+        sns.histplot(self.data[col].dropna(), kde=True, ax=ax,
+                     color=ACCENT_CYAN, line_kws={"lw": 2})
+        ax.set_title(col, fontsize=10, fontweight="bold")
+        ax.set_xlabel("")
+        plt.tight_layout()
+        fname = f"dist_{col}.png"
+        return self._save_matplotlib(fig, fname)
+
+    def _plot_single_categorical(self, col: str) -> str:
+        """Small horizontal bar chart for one categorical column."""
+        fig, ax = plt.subplots(figsize=(5, 3))
+        top = self.data[col].value_counts().head(10)
+        sns.barplot(x=top.values, y=top.index.astype(str), ax=ax, palette=COLORY)
+        ax.set_title(col, fontsize=10, fontweight="bold")
+        ax.set_xlabel("Count")
+        plt.tight_layout()
+        fname = f"cat_{col}.png"
+        return self._save_matplotlib(fig, fname)
+
+    def _create_dashboard_html(self, plots_list) -> str:
+        """
+        Professional analytics dashboard – compact multi-column grid with sections.
+        plots_list items: (section, title, path, size)
+          size: "wide" | "half" | "third"
+        """
+        # ── KPI stats ─────────────────────────────────────────────────────────
+        num_cols      = self._get_cols_by_type(self._NUM)
+        cat_cols      = self._get_cols_by_type(self._CAT)
+        total_rows    = len(self.data)
+        total_cols    = len(self.data.columns)
+        missing_pct   = round(self.data.isnull().mean().mean() * 100, 1)
+        num_count     = len(num_cols)
+        cat_count     = len(cat_cols)
+        dup_count     = int(self.data.duplicated().sum())
+        complete_pct  = round((1 - self.data.isnull().mean().mean()) * 100, 1)
+
+        kpi_defs = [
+            ("📋", "Total Records",    f"{total_rows:,}",      ACCENT_CYAN),
+            ("🔢", "Total Features",   str(total_cols),         "#818cf8"),
+            ("📊", "Numeric Cols",     str(num_count),          ACCENT_CYAN),
+            ("🏷️", "Categorical Cols", str(cat_count),          ACCENT_PURPLE),
+            ("✅", "Completeness",     f"{complete_pct}%",     "#06d49d" if complete_pct >= 95 else "#f59e0b"),
+            ("♊", "Duplicates",        str(dup_count),          "#ef4444" if dup_count > 0 else "#06d49d"),
+            ("📉", "Missing %",        f"{missing_pct}%",      "#f59e0b" if missing_pct > 0 else "#06d49d"),
+            ("🗂️", "Visualizations",  str(len(plots_list)),   ACCENT_PURPLE),
+        ]
+
+        kpi_html = ""
+        for icon, label, value, color in kpi_defs:
+            kpi_html += f"""<div class="kpi-card" style="--accent:{color};">
+  <div class="kpi-top"><span class="kpi-icon">{icon}</span></div>
+  <div class="kpi-value">{value}</div>
+  <div class="kpi-label">{label}</div>
+  <div class="kpi-glow"></div>
+</div>"""
+
+        # ── Section order & labels ─────────────────────────────────────────────
+        section_meta = {
+            "overview":    ("🔍", "Dataset Overview"),
+            "numeric":     ("📈", "Numeric Analysis"),
+            "categorical": ("🏷️",  "Categorical Analysis"),
+            "mixed":       ("🔀", "Mixed — Numeric × Categorical"),
+        }
+
+        # Group plots by section, preserving insertion order
+        from collections import OrderedDict
+        sections = OrderedDict()
+        for item in plots_list:
+            sec, title, path, size = item
+            sections.setdefault(sec, []).append((title, path, size))
+
+        # ── Build chart grid per section ───────────────────────────────────────
+        sections_html = ""
+        for sec_key, items in sections.items():
+            icon, sec_label = section_meta.get(sec_key, ("📌", sec_key.title()))
+
+            cards_html = ""
+            for title, path, size in items:
+                ext      = path.split('.')[-1].lower()
+                filename = os.path.basename(path)
+                safe_title = title.replace("'", "\\'")
+
+                if size == "wide":
+                    col_class = "span3"
+                    h_img, h_iframe = "340px", "420px"
+                elif size == "half":
+                    col_class = "span1h"       # spans 1.5 cols → use span of 1 in 3-col
+                    h_img, h_iframe = "260px", "320px"
+                else:   # "third"
+                    col_class = "span1"
+                    h_img, h_iframe = "220px", "260px"
+
+                if ext == "html":
+                    media = (f'<iframe src="/phase2/view/{filename}" '
+                             f'style="width:100%;height:{h_iframe};border:none;border-radius:8px;'
+                             f'background:#0b0b18;" loading="lazy"></iframe>')
+                else:
+                    media = (f'<img src="/phase2/view/{filename}" alt="{title}" '
+                             f'style="width:100%;height:{h_img};object-fit:contain;border-radius:8px;'
+                             f'cursor:zoom-in;background:#0b0b18;" loading="lazy" '
+                             f'onclick="openLb(this.src,\'{safe_title}\')">')
+
+                cards_html += f"""<div class="chart-card {col_class}">
+  <div class="chart-hdr">
+    <span class="chart-dot"></span>
+    <span class="chart-title">{title}</span>
+    <a href="/phase2/view/{filename}" target="_blank" class="chart-ext" title="Open full">⤢</a>
+  </div>
+  <div class="chart-body">{media}</div>
+</div>"""
+
+            sections_html += f"""<section class="db-section">
+  <div class="sec-label"><span>{icon} {sec_label}</span></div>
+  <div class="chart-grid">{cards_html}</div>
+</section>"""
+
+        # ── Full HTML ──────────────────────────────────────────────────────────
+        html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BRight AI — EDA Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{{box-sizing:border-box;margin:0;padding:0}}
+:root{{
+  --bg:#0b0b18;--card:#10112a;--card2:#0e0f26;
+  --border:#1c1e45;--border2:#252760;
+  --purple:{ACCENT_PURPLE};--cyan:{ACCENT_CYAN};
+  --text:#dde1ff;--dim:#5c628a;
+  --font:'Inter',sans-serif;
+}}
+html,body{{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13px;min-height:100vh}}
+
+/* ═══ HEADER ═══════════════════════════════════════════════════════════ */
+.db-header{{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 24px;
+  background:linear-gradient(135deg,#080918 0%,#0e0f2e 60%,#120f2e 100%);
+  border-bottom:1px solid var(--border2);
+  position:sticky;top:0;z-index:100;
+  box-shadow:0 2px 20px rgba(0,0,0,.5);
+}}
+.hdr-left{{display:flex;align-items:center;gap:14px}}
+.db-logo{{font-size:20px;font-weight:700;letter-spacing:.5px;color:var(--text)}}
+.db-logo span{{
+  background:linear-gradient(135deg,var(--cyan),var(--purple));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}}
+.db-tagline{{font-size:10px;color:var(--dim);letter-spacing:2px;text-transform:uppercase;margin-top:2px}}
+.hdr-chips{{display:flex;gap:8px}}
+.hdr-chip{{
+  padding:4px 12px;border-radius:20px;font-size:10px;font-weight:600;letter-spacing:.8px;
+  border:1px solid;
+}}
+.chip-cyan{{background:rgba(6,212,157,.1);border-color:var(--cyan);color:var(--cyan)}}
+.chip-purple{{background:rgba(168,85,247,.1);border-color:var(--purple);color:var(--purple)}}
+
+/* ═══ BODY ══════════════════════════════════════════════════════════════ */
+.db-body{{padding:20px 22px 48px;max-width:1600px;margin:0 auto}}
+
+/* ═══ KPI STRIP ═════════════════════════════════════════════════════════ */
+.kpi-strip{{
+  display:grid;
+  grid-template-columns:repeat(8,1fr);
+  gap:10px;margin-bottom:26px;
+}}
+@media(max-width:1200px){{.kpi-strip{{grid-template-columns:repeat(4,1fr)}}}}
+@media(max-width:700px){{.kpi-strip{{grid-template-columns:repeat(2,1fr)}}}}
+.kpi-card{{
+  background:var(--card);border:1px solid var(--border);border-radius:12px;
+  padding:14px 14px 12px;position:relative;overflow:hidden;
+  transition:transform .18s,border-color .18s,box-shadow .18s;
+  cursor:default;
+}}
+.kpi-card:hover{{
+  transform:translateY(-3px);
+  border-color:var(--accent);
+  box-shadow:0 6px 24px color-mix(in srgb,var(--accent) 20%,transparent);
+}}
+.kpi-top{{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}}
+.kpi-icon{{font-size:18px;line-height:1}}
+.kpi-value{{font-size:22px;font-weight:700;color:var(--accent);line-height:1;margin-bottom:4px}}
+.kpi-label{{font-size:10px;color:var(--dim);font-weight:500;letter-spacing:.4px}}
+.kpi-glow{{
+  position:absolute;bottom:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,var(--accent),transparent);
+  border-radius:0 0 12px 12px;
+}}
+
+/* ═══ SECTION ═══════════════════════════════════════════════════════════ */
+.db-section{{margin-bottom:28px}}
+.sec-label{{
+  display:flex;align-items:center;gap:10px;
+  font-size:10px;font-weight:700;letter-spacing:3px;
+  text-transform:uppercase;color:var(--dim);
+  margin-bottom:12px;
+}}
+.sec-label span{{white-space:nowrap}}
+.sec-label::after{{content:'';flex:1;height:1px;background:var(--border)}}
+
+/* ═══ CHART GRID (3-column base) ════════════════════════════════════════ */
+.chart-grid{{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:12px;
+}}
+@media(max-width:900px){{.chart-grid{{grid-template-columns:repeat(2,1fr)}}}}
+@media(max-width:580px){{.chart-grid{{grid-template-columns:1fr}}}}
+
+.chart-card{{
+  background:var(--card);border:1px solid var(--border);border-radius:12px;
+  overflow:hidden;transition:border-color .18s,box-shadow .18s;
+  display:flex;flex-direction:column;
+}}
+.chart-card:hover{{
+  border-color:rgba(168,85,247,.35);
+  box-shadow:0 4px 22px rgba(168,85,247,.12);
+}}
+/* size modifiers */
+.span3{{grid-column:1/-1}}
+.span1h{{grid-column:span 1}}          /* plain half in 3-col = 1 col */
+@media(min-width:900px){{
+  .span1h{{grid-column:span 2}}        /* on wide screens span 2 of 3 */
+}}
+.span1{{grid-column:span 1}}
+
+.chart-hdr{{
+  display:flex;align-items:center;gap:8px;
+  padding:10px 14px 9px;
+  border-bottom:1px solid var(--border);
+  background:rgba(255,255,255,.018);
+  flex-shrink:0;
+}}
+.chart-dot{{
+  width:7px;height:7px;border-radius:50%;flex-shrink:0;
+  background:linear-gradient(135deg,var(--cyan),var(--purple));
+}}
+.chart-title{{flex:1;font-size:11px;font-weight:600;color:var(--text);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
+.chart-ext{{
+  color:var(--dim);text-decoration:none;font-size:14px;line-height:1;
+  padding:2px 5px;border-radius:5px;transition:color .15s,background .15s;
+  flex-shrink:0;
+}}
+.chart-ext:hover{{color:var(--cyan);background:rgba(6,212,157,.1)}}
+.chart-body{{padding:10px;flex:1;display:flex;align-items:center;justify-content:center}}
+.chart-body img,.chart-body iframe{{border-radius:6px;display:block}}
+
+/* ═══ LIGHTBOX ═══════════════════════════════════════════════════════════ */
+#lb{{
+  display:none;position:fixed;inset:0;z-index:9999;
+  background:rgba(0,0,0,.92);backdrop-filter:blur(12px);
+  align-items:center;justify-content:center;cursor:zoom-out;
+}}
+#lb.open{{display:flex}}
+#lb-inner{{
+  position:relative;max-width:94vw;max-height:90vh;
+  display:flex;flex-direction:column;align-items:center;gap:12px;
+  cursor:default;
+}}
+#lb-title{{
+  font-size:11px;letter-spacing:2px;text-transform:uppercase;
+  color:var(--cyan);text-align:center;
+}}
+#lb img{{
+  max-width:92vw;max-height:82vh;border-radius:12px;
+  box-shadow:0 0 60px rgba(168,85,247,.3);
+}}
+#lb-close{{
+  position:fixed;top:16px;right:20px;
+  background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.4);
+  color:#ef4444;width:34px;height:34px;border-radius:9px;
+  font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:background .15s;
+}}
+#lb-close:hover{{background:rgba(239,68,68,.3)}}
+
+/* ═══ FOOTER ══════════════════════════════════════════════════════════ */
+.db-footer{{
+  text-align:center;padding:18px 24px;
+  border-top:1px solid var(--border);
+  color:var(--dim);font-size:10px;letter-spacing:1px;
+}}
+.db-footer strong{{color:var(--purple)}}
+</style>
+</head>
+<body>
+
+<header class="db-header">
+  <div class="hdr-left">
+    <div>
+      <div class="db-logo">BRight <span>AI</span></div>
+      <div class="db-tagline">Automatic EDA Dashboard</div>
+    </div>
+  </div>
+  <div class="hdr-chips">
+    <span class="hdr-chip chip-cyan">⬡ {total_rows:,} rows</span>
+    <span class="hdr-chip chip-purple">◈ {total_cols} features</span>
+    <span class="hdr-chip chip-cyan">📊 {len(plots_list)} charts</span>
+  </div>
+</header>
+
+<div class="db-body">
+
+  <!-- KPI STRIP -->
+  <div class="kpi-strip">
+    {kpi_html}
+  </div>
+
+  <!-- CHART SECTIONS -->
+  {sections_html}
+
+</div>
+
+<footer class="db-footer">
+  Generated by <strong>BRight AI</strong> · {total_rows:,} records · {total_cols} features · {len(plots_list)} visualizations
+</footer>
+
+<!-- LIGHTBOX -->
+<div id="lb" onclick="closeLb()">
+  <div id="lb-inner" onclick="event.stopPropagation()">
+    <div id="lb-title"></div>
+    <img id="lb-img" src="" alt="">
+  </div>
+  <button id="lb-close" onclick="closeLb()">✕</button>
+</div>
+
+<script>
+function openLb(src,title){{
+  document.getElementById('lb-img').src=src;
+  document.getElementById('lb-title').textContent=title;
+  document.getElementById('lb').classList.add('open');
+  document.body.style.overflow='hidden';
+}}
+function closeLb(){{
+  document.getElementById('lb').classList.remove('open');
+  document.getElementById('lb-img').src='';
+  document.body.style.overflow='';
+}}
+document.addEventListener('keydown',e=>{{if(e.key==='Escape')closeLb()}});
+</script>
+</body>
+</html>"""
+
+        dashboard_path = os.path.join(self.plots_dir, "automatic_dashboard.html")
+        with open(dashboard_path, 'w', encoding='utf-8') as f:
+            f.write(html)
+        print(f"📄 Dashboard saved: {dashboard_path}")
+        return dashboard_path

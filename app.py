@@ -69,6 +69,66 @@ def get_raw_df() -> pd.DataFrame:
     return load_session_df(path)
 
 
+def compute_column_schema(df: pd.DataFrame) -> dict:
+    """
+    Classify every column as 'num' or 'cat' based on its CURRENT dtype.
+    Used to snapshot the schema BEFORE any encoding/type-conversion step
+    changes a column's dtype (e.g. Label/One-Hot encoding turns a
+    categorical column into integers).
+    """
+    return {col: ("num" if df[col].dtype.kind in "iufcb" else "cat") for col in df.columns}
+
+
+def save_column_schema(schema: dict) -> str:
+    """Persist a column-type schema (dict) to disk and return its path."""
+    fname = f"schema_{uuid.uuid4().hex}.json"
+    path = os.path.join(SESSION_DATA_FOLDER, fname)
+    with open(path, 'w') as f:
+        json.dump(schema, f)
+    return path
+
+
+def load_column_schema(path: str) -> dict:
+    """Load a persisted column-type schema, or None if unavailable."""
+    if path and os.path.exists(path):
+        with open(path, 'r') as f:
+            return json.load(f)
+    return None
+
+
+def get_original_schema() -> dict:
+    """
+    Return the pre-encoding column-type schema stored in the session, or None
+    if it was never saved (e.g. data produced by an older code path).
+    """
+    path = session.get('schema_path')
+    return load_column_schema(path)
+
+
+def resolve_column_type(col_name: str, df: pd.DataFrame, original_schema: dict) -> str:
+    """
+    Decide whether a column should be reported as 'num' or 'cat' for
+    visualization purposes:
+      - If the column existed BEFORE encoding, trust its ORIGINAL type
+        (e.g. a categorical column stays 'cat' even after Label/One-Hot
+        encoding turned it into integers/binary columns).
+      - If the column is new (e.g. a One-Hot expansion like
+        'category_A', 'category_B'), it is always treated as categorical
+        (binary 0/1 indicator), regardless of its numeric dtype.
+      - If no original schema is available at all, fall back to detecting
+        from the current dtype (legacy behavior).
+    """
+    if original_schema is None:
+        return "num" if df[col_name].dtype.kind in "iufcb" else "cat"
+
+    if col_name in original_schema:
+        return original_schema[col_name]
+
+    # Column not in the original schema → it's almost certainly a
+    # One-Hot-expanded indicator column. Treat it as categorical.
+    return "cat"
+
+
 # ── Routes ────────────────────────────────────────────────────────────────────
 
 @app.route('/')
@@ -121,6 +181,7 @@ def process():
                 "download_url": f"/download/{out_file}",
                 "rows": df.shape[0],
                 "cols": df.shape[1],
+                "columns": list(df.columns),
             })
 
         except Exception as e:
@@ -133,8 +194,8 @@ def process():
 @app.route('/clear-data', methods=['POST'])
 def clear_data():
     """Remove session data so next upload starts fresh."""
-    # Delete persisted pickle files
-    for key in ('raw_df_path', 'clean_df_path'):
+    # Delete persisted pickle/json files
+    for key in ('raw_df_path', 'clean_df_path', 'schema_path'):
         path = session.pop(key, None)
         if path and os.path.exists(path):
             try:
@@ -157,7 +218,54 @@ def pipeline_stream():
     SSE generators run OUTSIDE the request context, so we must update
     session BEFORE returning the Response, and pass the clean_path
     into the generator via a closure variable — not via session.
+
+    Developer Mode (optional form fields — all default to the original
+    automatic User Mode behavior when absent):
+        null_threshold    : float  (0.0–1.0)         default 0.4
+        null_fill_strategy: 'median'|'mean'|'mode'    default 'median'
+        do_type_conversion: 'true'|'false'            default 'true'
+        do_remove_duplicates: 'true'|'false'          default 'true'
+        exclude_columns   : comma-separated string    default '' (none)
+        encoding_method   : 'none'|'label'|'onehot'   default 'none'
+        outlier_method    : 'iqr' | 'zscore'          default 'iqr'
+        zscore_threshold  : float (2.5–3.5)           default 3.0
+        outlier_strategy  : 'cap'  | 'remove'         default 'cap'
     """
+    # ── Read Developer Mode overrides (safe defaults = old behavior) ───────
+    try:
+        null_threshold = float(request.form.get('null_threshold', 0.4))
+    except (TypeError, ValueError):
+        null_threshold = 0.4
+    null_threshold = min(max(null_threshold, 0.0), 1.0)
+
+    null_fill_strategy = request.form.get('null_fill_strategy', 'median')
+    if null_fill_strategy not in ('median', 'mean', 'mode'):
+        null_fill_strategy = 'median'
+
+    do_type_conversion = request.form.get('do_type_conversion', 'true') == 'true'
+    do_remove_duplicates = request.form.get('do_remove_duplicates', 'true') == 'true'
+
+    exclude_columns_raw = request.form.get('exclude_columns', '')
+    exclude_columns = [c.strip() for c in exclude_columns_raw.split(',') if c.strip()]
+
+    encoding_method = request.form.get('encoding_method', 'none')
+    if encoding_method not in ('none', 'label', 'onehot'):
+        encoding_method = 'none'
+
+    outlier_method = request.form.get('outlier_method', 'iqr')
+    if outlier_method not in ('iqr', 'zscore'):
+        outlier_method = 'iqr'
+
+    try:
+        zscore_threshold = float(request.form.get('zscore_threshold', 3.0))
+    except (TypeError, ValueError):
+        zscore_threshold = 3.0
+    zscore_threshold = min(max(zscore_threshold, 2.0), 4.0)
+
+    outlier_strategy = request.form.get('outlier_strategy', 'cap')
+    if outlier_strategy not in ('cap', 'remove'):
+        outlier_strategy = 'cap'
+
     # ── Load raw DF (still inside request context) ─────────────────────────
     df_raw = get_raw_df()
 
@@ -182,36 +290,80 @@ def pipeline_stream():
     session['clean_df_path'] = clean_path
     session['pipeline_done'] = False
 
+    # ── Snapshot the ORIGINAL column schema (num/cat) from the RAW data ────
+    # This must happen BEFORE type conversion / encoding, since those steps
+    # can change a column's dtype (e.g. Label/One-Hot turns text into
+    # numbers). Phase 2 visualization relies on this snapshot so categorical
+    # columns are still recognized as categorical even after encoding.
+    original_schema = compute_column_schema(df_raw)
+    schema_path = save_column_schema(original_schema)
+    session['schema_path'] = schema_path
+
     def send(stage, message, progress):
         return f"data: {json.dumps({'stage': stage, 'message': message, 'progress': progress, 'type': 'progress'})}\n\n"
 
     # Capture variables needed inside generator (avoids any session access)
     _df_raw = df_raw
     _clean_path = clean_path
+    _null_threshold = null_threshold
+    _null_fill_strategy = null_fill_strategy
+    _do_type_conversion = do_type_conversion
+    _do_remove_duplicates = do_remove_duplicates
+    _exclude_columns = exclude_columns
+    _encoding_method = encoding_method
+    _outlier_method = outlier_method
+    _zscore_threshold = zscore_threshold
+    _outlier_strategy = outlier_strategy
 
     def generate():
         try:
-            yield send("Data Validation", "Engine started. Accessing data stream...", 10)
-            time.sleep(0.8)
+            yield send("Data Validation", "Engine started. Accessing data stream...", 8)
+            time.sleep(0.6)
 
-            yield send("Data Validation", f"File locked. Detected {_df_raw.shape[0]} rows.", 25)
-            time.sleep(0.8)
+            yield send("Data Validation", f"File locked. Detected {_df_raw.shape[0]} rows.", 18)
+            time.sleep(0.6)
+
+            preprocessor = DataPreprocessor(_df_raw)
+
+            if _exclude_columns:
+                yield send("Preprocessing", f"Excluding {len(_exclude_columns)} column(s) per configuration...", 25)
+                preprocessor.exclude_columns(_exclude_columns)
+                time.sleep(0.3)
 
             yield send("Preprocessing", "Scanning for missing values (Nulls)...", 35)
-            preprocessor = DataPreprocessor(_df_raw)
-            preprocessor.handle_nulls()
+            preprocessor.handle_nulls(threshold=_null_threshold, fill_strategy=_null_fill_strategy)
 
-            yield send("Preprocessing", "Applying smart type conversion...", 50)
-            preprocessor.convert_types()
-            preprocessor.remove_duplicates()
+            if _do_type_conversion:
+                yield send("Preprocessing", "Applying smart type conversion...", 48)
+                preprocessor.convert_types()
+            else:
+                yield send("Preprocessing", "Skipping type conversion (disabled)...", 48)
+
+            if _do_remove_duplicates:
+                preprocessor.remove_duplicates()
+
+            if _encoding_method != "none":
+                enc_label = "Label" if _encoding_method == "label" else "One-Hot"
+                yield send("Preprocessing", f"Encoding categorical columns ({enc_label})...", 58)
+                preprocessor.encode_categoricals(_encoding_method)
+
             clean_data = preprocessor.get_clean_data()
             time.sleep(0.4)
 
-            yield send("Outlier Detection", "Analyzing statistical distribution...", 75)
+            method_label = "IQR" if _outlier_method == "iqr" else f"Z-Score (threshold={_zscore_threshold})"
+            strategy_label = "Capping" if _outlier_strategy == "cap" else "Removal"
+            yield send("Outlier Detection", f"Analyzing statistical distribution ({method_label} / {strategy_label})...", 75)
             outlier_handler = OutlierHandler(clean_data)
-            outlier_handler.detect_iqr()
-            clean_data = outlier_handler.cap_outliers()
-            time.sleep(0.8)
+            if _outlier_method == "iqr":
+                outlier_handler.detect_iqr()
+            else:
+                outlier_handler.detect_zscore(threshold=_zscore_threshold)
+
+            if _outlier_strategy == "cap":
+                clean_data = outlier_handler.cap_outliers(_outlier_method, zscore_threshold=_zscore_threshold)
+            else:
+                clean_data = outlier_handler.remove_outliers(_outlier_method, zscore_threshold=_zscore_threshold)
+            time.sleep(0.6)
 
             yield send("Report Generated", "Synthesizing intelligence report...", 95)
 
@@ -242,6 +394,18 @@ def download(filename):
     return send_file(file_path, as_attachment=True)
 
 
+# save mode 
+@app.route("/set-mode", methods=["POST"])
+def set_mode():
+
+    data = request.get_json()
+
+    session["mode"] = data.get("mode", "user")
+
+    return jsonify({
+        "status": "success"
+    })
+
 # ════════════════════════════════════════════════════════════
 # PHASE 2 — Data Visualization Routes (uses clean DF from session)
 # ════════════════════════════════════════════════════════════
@@ -250,9 +414,15 @@ PLOTS_FOLDER = os.path.join(BASE_DIR, 'Phase_2', 'plots')
 os.makedirs(PLOTS_FOLDER, exist_ok=True)
 
 
-@app.route('/phase2')
+@app.route("/phase2")
 def phase2():
-    return render_template('phase2_ui.html')
+
+    mode = session.get("mode", "user")
+
+    return render_template(
+        "phase2_ui.html",
+        mode=mode
+    )
 
 
 @app.route('/phase2/status', methods=['GET'])
@@ -260,12 +430,13 @@ def phase2_status():
     """Returns whether the pipeline has been run and clean data is available."""
     clean_df = get_clean_df()
     if clean_df is not None:
+        original_schema = get_original_schema()
         return jsonify({
             "status": "ready",
             "rows": clean_df.shape[0],
             "cols": clean_df.shape[1],
             "columns": [
-                {"name": col, "type": "num" if clean_df[col].dtype.kind in "iufcb" else "cat"}
+                {"name": col, "type": resolve_column_type(col, clean_df, original_schema)}
                 for col in clean_df.columns
             ]
         })
@@ -296,6 +467,11 @@ def phase2_detect_columns():
             if df_raw is None or df_raw.empty:
                 return jsonify({"status": "error", "message": "Empty or invalid file."}), 400
 
+            # Snapshot the ORIGINAL schema before any type-changing step
+            original_schema = compute_column_schema(df_raw)
+            schema_path = save_column_schema(original_schema)
+            session['schema_path'] = schema_path
+
             # Full preprocessing
             preprocessor = DataPreprocessor(df_raw)
             preprocessor.handle_nulls()
@@ -316,9 +492,10 @@ def phase2_detect_columns():
             return jsonify({"status": "error", "message": str(e)}), 500
 
     try:
+        original_schema = get_original_schema()
         columns = []
         for col in clean_df.columns:
-            col_type = "num" if clean_df[col].dtype.kind in "iufcb" else "cat"
+            col_type = resolve_column_type(col, clean_df, original_schema)
             columns.append({"name": col, "type": col_type})
 
         return jsonify({
@@ -417,6 +594,10 @@ def phase2_generate():
             size = request.form.get("size", "")
             color = request.form.get("color") or None
             output_path = viz.plot_bubble_chart(x, y, size, color=color, save=True)
+            plot_type = "html"
+
+        elif chart_type == "automatic_dashboard":
+            output_path = viz.generate_automatic_dashboard(save=True)
             plot_type = "html"
 
         else:

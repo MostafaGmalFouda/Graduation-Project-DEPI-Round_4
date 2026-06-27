@@ -51,13 +51,15 @@ class OutlierHandler:
             raise Exception(f"Error in IQR detection: {e}")
 
 
-    def detect_zscore(self) -> dict:
+    def detect_zscore(self, threshold: float = 3.0) -> dict:
         """
         Detect outliers using Z-score method.
 
         Z = (x - mean) / std
-        Outliers are values where |Z| > 3.
+        Outliers are values where |Z| > threshold.
 
+        Args:
+            threshold: Z-score cutoff. Defaults to 3.0 (original behavior).
         Returns:
             dict: Number of outliers per column.
         """
@@ -74,7 +76,7 @@ class OutlierHandler:
                     continue
 
                 z_scores = (self.data[col] - mean) / std
-                count = (abs(z_scores) > 3).sum()
+                count = (abs(z_scores) > threshold).sum()
                 outliers[col] = int(count)
 
             print("Z-score outlier detection completed.")
@@ -84,12 +86,13 @@ class OutlierHandler:
             raise Exception(f"Error in Z-score detection: {e}")
 
 
-    def remove_outliers(self, method: str = "iqr") -> pd.DataFrame:
+    def remove_outliers(self, method: str = "iqr", zscore_threshold: float = 3.0) -> pd.DataFrame:
         """
         Remove rows that contain outliers.
 
         Args:
             method (str): 'iqr' or 'zscore'. Defaults to 'iqr'.
+            zscore_threshold (float): Cutoff used when method='zscore'. Defaults to 3.0.
 
         Returns:
             pd.DataFrame: Cleaned dataset with outlier rows removed.
@@ -122,7 +125,7 @@ class OutlierHandler:
                     if std == 0:
                         continue
                     z_scores = (clean_data[col] - mean) / std
-                    clean_data = clean_data[abs(z_scores) <= 3]
+                    clean_data = clean_data[abs(z_scores) <= zscore_threshold]
 
             print(f"Outliers removed successfully using {method.upper()} method.")
             return clean_data
@@ -131,7 +134,7 @@ class OutlierHandler:
             raise Exception(f"Error removing outliers: {e}")
 
 
-    def cap_outliers(self, method: str = "iqr") -> pd.DataFrame:
+    def cap_outliers(self, method: str = "iqr", zscore_threshold: float = 3.0) -> pd.DataFrame:
         """
         Cap outliers to boundary values instead of removing them.
         Capping is safer than removal — it keeps all rows and just
@@ -139,6 +142,7 @@ class OutlierHandler:
 
         Args:
             method (str): 'iqr' or 'zscore'. Defaults to 'iqr'.
+            zscore_threshold (float): Cutoff used when method='zscore'. Defaults to 3.0.
 
         Returns:
             pd.DataFrame: Dataset with outliers capped.
@@ -167,8 +171,8 @@ class OutlierHandler:
                     std = capped_data[col].std()
                     if std == 0:
                         continue
-                    lower_bound = mean - 3 * std
-                    upper_bound = mean + 3 * std
+                    lower_bound = mean - zscore_threshold * std
+                    upper_bound = mean + zscore_threshold * std
 
                 capped_data[col] = capped_data[col].clip(lower_bound, upper_bound)
                 print(f"  '{col}' capped between [{round(lower_bound, 2)}, {round(upper_bound, 2)}]")

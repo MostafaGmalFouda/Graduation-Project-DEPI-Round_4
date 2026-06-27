@@ -37,6 +37,16 @@ body {
     overflow-x: hidden;
 }
 
+#content-area {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    min-height: 100vh;
+    position: relative;
+}
 .app-stage { 
     width: 100%; 
     max-width: 1200px; 
@@ -104,6 +114,9 @@ body {
 .cyan-glow { color: var(--neon-c); text-shadow: 0 0 10px var(--neon-c); }
 
 /*   (Browse Section) */
+.browse-card{
+    width: 300px;
+}
 .browse-content { 
     display: flex; 
     flex-direction: column; 
