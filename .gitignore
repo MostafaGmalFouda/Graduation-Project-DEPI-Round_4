@@ -1,8 +1,9 @@
 # Python Cache
 **/__pycache__/
 *.py[cod]
-
+phase1/__pycache__/
 .vscode/
+
 
 heart.csv
 Data.xlsx

@@ -6,6 +6,7 @@ import uuid
 import pickle
 import pandas as pd
 from werkzeug.utils import secure_filename
+import numpy as np
 
 # Import custom modules from Phase_1
 from Phase_1.DataLoader import DataLoader

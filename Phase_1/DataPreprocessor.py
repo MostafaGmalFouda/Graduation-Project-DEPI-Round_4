@@ -1,5 +1,5 @@
 import pandas as pd
-from sklearn.preprocessing import OneHotEncoder
+
 class DataPreprocessor:
     """
     Smart preprocessing pipeline for tabular data.
