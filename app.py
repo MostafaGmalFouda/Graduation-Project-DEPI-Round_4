@@ -18,7 +18,8 @@ from Phase_1.OutlierHandler import OutlierHandler
 from Phase_2.DataVisualizer import DataVisualizer
 
 
-# Initialize Flask app
+# ── App Setup ─────────────────────────────────────────────────────────────────
+
 app = Flask(__name__)
 app.secret_key = "bright_ai_secret_key_2024"
 
@@ -69,6 +70,7 @@ def get_raw_df() -> pd.DataFrame:
     return load_session_df(path)
 
 
+# ── Schema helpers ────────────────────────────────────────────────────────────
 def compute_column_schema(df: pd.DataFrame) -> dict:
     """
     Classify every column as 'num' or 'cat' based on its CURRENT dtype.
@@ -221,16 +223,36 @@ def pipeline_stream():
 
     Developer Mode (optional form fields — all default to the original
     automatic User Mode behavior when absent):
-        null_threshold    : float  (0.0–1.0)         default 0.4
-        null_fill_strategy: 'median'|'mean'|'mode'    default 'median'
-        do_type_conversion: 'true'|'false'            default 'true'
-        do_remove_duplicates: 'true'|'false'          default 'true'
-        exclude_columns   : comma-separated string    default '' (none)
-        encoding_method   : 'none'|'label'|'onehot'   default 'none'
-        outlier_method    : 'iqr' | 'zscore'          default 'iqr'
-        zscore_threshold  : float (2.5–3.5)           default 3.0
-        outlier_strategy  : 'cap'  | 'remove'         default 'cap'
+        null_threshold        float  0.0–1.0          default 0.4
+        null_fill_strategy    median|mean|mode         default median
+        do_type_conversion    true|false               default true
+        do_remove_duplicates  true|false               default true
+        exclude_columns       comma-separated          default ''
+        text_action           drop|hash|keep           default drop
+        text_unique_threshold float  0.0–1.0          default 0.6
+        encoding_method       none|label|onehot        default none
+            → 'none' triggers auto_encode (smart User Mode behaviour)
+            → 'label'/'onehot' overrides with uniform manual encoding
+        outlier_method        iqr|zscore               default iqr
+        zscore_threshold      float  2.0–4.0           default 3.0
+        outlier_strategy      cap|remove               default cap
     """
+    def _float(key, default, lo=None, hi=None):
+        try:
+            v = float(request.form.get(key, default))
+        except (TypeError, ValueError):
+            v = default
+        if lo is not None: v = max(v, lo)
+        if hi is not None: v = min(v, hi)
+        return v
+
+    def _bool(key, default='true'):
+        return request.form.get(key, default) == 'true'
+    
+    def _choice(key, choices, default):
+        v = request.form.get(key, default)
+        return v if v in choices else default
+    
     # ── Read Developer Mode overrides (safe defaults = old behavior) ───────
     try:
         null_threshold = float(request.form.get('null_threshold', 0.4))
@@ -247,6 +269,10 @@ def pipeline_stream():
 
     exclude_columns_raw = request.form.get('exclude_columns', '')
     exclude_columns = [c.strip() for c in exclude_columns_raw.split(',') if c.strip()]
+
+     
+    text_action           = _choice('text_action', ('drop','hash','keep'), 'drop')
+    text_unique_threshold = _float('text_unique_threshold', 0.6, 0.0, 1.0)
 
     encoding_method = request.form.get('encoding_method', 'none')
     if encoding_method not in ('none', 'label', 'onehot'):
@@ -310,6 +336,8 @@ def pipeline_stream():
     _do_type_conversion = do_type_conversion
     _do_remove_duplicates = do_remove_duplicates
     _exclude_columns = exclude_columns
+    _text_action          = text_action
+    _text_unique_threshold = text_unique_threshold
     _encoding_method = encoding_method
     _outlier_method = outlier_method
     _zscore_threshold = zscore_threshold
@@ -325,31 +353,60 @@ def pipeline_stream():
 
             preprocessor = DataPreprocessor(_df_raw)
 
+            # Step 1 — Exclude user-specified columns
             if _exclude_columns:
                 yield send("Preprocessing", f"Excluding {len(_exclude_columns)} column(s) per configuration...", 25)
                 preprocessor.exclude_columns(_exclude_columns)
                 time.sleep(0.3)
+            
+            # Step 2 — Drop numeric ID columns (e.g. PassengerId)
+            # yield send("Preprocessing", "Detecting and dropping numeric ID columns...", 20)
+            # preprocessor.drop_id_columns()
+            # time.sleep(0.2)
 
+            # Step 3 — Handle nulls
             yield send("Preprocessing", "Scanning for missing values (Nulls)...", 35)
             preprocessor.handle_nulls(threshold=_null_threshold, fill_strategy=_null_fill_strategy)
 
+            # Step 4 — Handle high-cardinality text columns  
+            action_label = {"drop": "Dropping", "hash": "Hashing", "keep": "Keeping"}.get(_text_action, "Dropping")
+            yield send(
+                "Preprocessing",
+                f"Analyzing text columns — {action_label} ID-like columns (>{_text_unique_threshold:.0%} unique)...",
+                38
+            )
+            preprocessor.handle_text_columns(
+                unique_threshold=_text_unique_threshold,
+                action=_text_action
+            )
+            time.sleep(0.4)
+
+            # Step 5 — Type conversion
             if _do_type_conversion:
                 yield send("Preprocessing", "Applying smart type conversion...", 48)
                 preprocessor.convert_types()
             else:
                 yield send("Preprocessing", "Skipping type conversion (disabled)...", 48)
 
+            # Step 6 — Remove duplicates
             if _do_remove_duplicates:
                 preprocessor.remove_duplicates()
 
-            if _encoding_method != "none":
+            # Step 7 — Encoding
+            if _encoding_method == "none":
+                # USER MODE — smart auto-encoding
+                yield send("Preprocessing", "Auto-encoding categorical columns (smart mode)...", 62)
+                preprocessor.auto_encode(onehot_max_unique=10)
+            else:
+                # DEVELOPER MODE — manual uniform encoding
                 enc_label = "Label" if _encoding_method == "label" else "One-Hot"
-                yield send("Preprocessing", f"Encoding categorical columns ({enc_label})...", 58)
+                yield send("Preprocessing", f"Encoding categorical columns ({enc_label})...", 62)
                 preprocessor.encode_categoricals(_encoding_method)
-
-            clean_data = preprocessor.get_clean_data()
             time.sleep(0.4)
 
+            clean_data = preprocessor.get_clean_data()
+
+            # Step 8 — Outlier detection & handling
             method_label = "IQR" if _outlier_method == "iqr" else f"Z-Score (threshold={_zscore_threshold})"
             strategy_label = "Capping" if _outlier_strategy == "cap" else "Removal"
             yield send("Outlier Detection", f"Analyzing statistical distribution ({method_label} / {strategy_label})...", 75)
@@ -364,16 +421,20 @@ def pipeline_stream():
             else:
                 clean_data = outlier_handler.remove_outliers(_outlier_method, zscore_threshold=_zscore_threshold)
             time.sleep(0.6)
-
+            
+            # Step 9 — Generate report
             yield send("Report Generated", "Synthesizing intelligence report...", 95)
-
             out_file = f"report_{uuid.uuid4().hex[:8]}.html"
             output_path = os.path.join(REPORTS_FOLDER, out_file)
             ReportGenerator(clean_data).generate_report(mode="detailed", file_name=output_path)
 
-            # ── Persist clean DF to the pre-agreed path ────────────────
+            # Step 10 — Persist clean DF to pre-agreed path
             # (session was already updated BEFORE the generator started)
             clean_data.to_pickle(_clean_path)
+            # ✅ FIX: pipeline_done is already True in session (set before streaming).
+            # We can't update session here (outside request context), so we rely on
+            # the existence of the pickle file as the source of truth.
+            # The /phase2/status endpoint checks get_clean_df() which checks the file.
 
             yield f"data: {json.dumps({'done': True, 'stage': 'Report Generated', 'message': 'Complete', 'progress': 100, 'view_url': f'/view/{out_file}', 'download_url': f'/download/{out_file}', 'rows': len(clean_data), 'cols': len(clean_data.columns)})}\n\n"
 
@@ -383,6 +444,7 @@ def pipeline_stream():
     return Response(generate(), mimetype='text/event-stream')
 
 
+# ── Static file routes ────────────────────────────────────────────────────────
 @app.route('/view/<filename>')
 def view(filename):
     return send_from_directory(REPORTS_FOLDER, filename)
@@ -475,8 +537,11 @@ def phase2_detect_columns():
             # Full preprocessing
             preprocessor = DataPreprocessor(df_raw)
             preprocessor.handle_nulls()
+            # preprocessor.drop_id_columns()
+            preprocessor.handle_text_columns(unique_threshold=0.6)          
             preprocessor.convert_types()
             preprocessor.remove_duplicates()
+            preprocessor.auto_encode()  
             clean_data = preprocessor.get_clean_data()
             outlier_handler = OutlierHandler(clean_data)
             outlier_handler.detect_iqr()
