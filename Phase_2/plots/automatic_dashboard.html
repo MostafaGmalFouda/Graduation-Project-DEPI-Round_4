@@ -179,9 +179,9 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);font-si
     </div>
   </div>
   <div class="hdr-chips">
-    <span class="hdr-chip chip-cyan">⬡ 30 rows</span>
-    <span class="hdr-chip chip-purple">◈ 2 features</span>
-    <span class="hdr-chip chip-cyan">📊 5 charts</span>
+    <span class="hdr-chip chip-cyan">⬡ 14 rows</span>
+    <span class="hdr-chip chip-purple">◈ 5 features</span>
+    <span class="hdr-chip chip-cyan">📊 10 charts</span>
   </div>
 </header>
 
@@ -191,22 +191,22 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);font-si
   <div class="kpi-strip">
     <div class="kpi-card" style="--accent:#06d49d;">
   <div class="kpi-top"><span class="kpi-icon">📋</span></div>
-  <div class="kpi-value">30</div>
+  <div class="kpi-value">14</div>
   <div class="kpi-label">Total Records</div>
   <div class="kpi-glow"></div>
 </div><div class="kpi-card" style="--accent:#818cf8;">
   <div class="kpi-top"><span class="kpi-icon">🔢</span></div>
-  <div class="kpi-value">2</div>
+  <div class="kpi-value">5</div>
   <div class="kpi-label">Total Features</div>
   <div class="kpi-glow"></div>
 </div><div class="kpi-card" style="--accent:#06d49d;">
   <div class="kpi-top"><span class="kpi-icon">📊</span></div>
-  <div class="kpi-value">2</div>
+  <div class="kpi-value">0</div>
   <div class="kpi-label">Numeric Cols</div>
   <div class="kpi-glow"></div>
 </div><div class="kpi-card" style="--accent:#a855f7;">
   <div class="kpi-top"><span class="kpi-icon">🏷️</span></div>
-  <div class="kpi-value">0</div>
+  <div class="kpi-value">5</div>
   <div class="kpi-label">Categorical Cols</div>
   <div class="kpi-glow"></div>
 </div><div class="kpi-card" style="--accent:#06d49d;">
@@ -226,7 +226,7 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);font-si
   <div class="kpi-glow"></div>
 </div><div class="kpi-card" style="--accent:#a855f7;">
   <div class="kpi-top"><span class="kpi-icon">🗂️</span></div>
-  <div class="kpi-value">5</div>
+  <div class="kpi-value">10</div>
   <div class="kpi-label">Visualizations</div>
   <div class="kpi-glow"></div>
 </div>
@@ -242,44 +242,79 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);font-si
     <a href="/phase2/view/summary_dashboard.png" target="_blank" class="chart-ext" title="Open full">⤢</a>
   </div>
   <div class="chart-body"><img src="/phase2/view/summary_dashboard.png" alt="📊 Summary Overview" style="width:100%;height:340px;object-fit:contain;border-radius:8px;cursor:zoom-in;background:#0b0b18;" loading="lazy" onclick="openLb(this.src,'📊 Summary Overview')"></div>
-</div><div class="chart-card span1h">
-  <div class="chart-hdr">
-    <span class="chart-dot"></span>
-    <span class="chart-title">🔥 Correlation Heatmap</span>
-    <a href="/phase2/view/correlation_heatmap.png" target="_blank" class="chart-ext" title="Open full">⤢</a>
-  </div>
-  <div class="chart-body"><img src="/phase2/view/correlation_heatmap.png" alt="🔥 Correlation Heatmap" style="width:100%;height:260px;object-fit:contain;border-radius:8px;cursor:zoom-in;background:#0b0b18;" loading="lazy" onclick="openLb(this.src,'🔥 Correlation Heatmap')"></div>
 </div></div>
 </section><section class="db-section">
-  <div class="sec-label"><span>📈 Numeric Analysis</span></div>
+  <div class="sec-label"><span>🏷️ Categorical Analysis</span></div>
   <div class="chart-grid"><div class="chart-card span1">
   <div class="chart-hdr">
     <span class="chart-dot"></span>
-    <span class="chart-title">📈 Distribution: YearsExperience</span>
-    <a href="/phase2/view/dist_YearsExperience.png" target="_blank" class="chart-ext" title="Open full">⤢</a>
+    <span class="chart-title">🏷️ Outlook Distribution</span>
+    <a href="/phase2/view/cat_Outlook.png" target="_blank" class="chart-ext" title="Open full">⤢</a>
   </div>
-  <div class="chart-body"><img src="/phase2/view/dist_YearsExperience.png" alt="📈 Distribution: YearsExperience" style="width:100%;height:220px;object-fit:contain;border-radius:8px;cursor:zoom-in;background:#0b0b18;" loading="lazy" onclick="openLb(this.src,'📈 Distribution: YearsExperience')"></div>
+  <div class="chart-body"><img src="/phase2/view/cat_Outlook.png" alt="🏷️ Outlook Distribution" style="width:100%;height:220px;object-fit:contain;border-radius:8px;cursor:zoom-in;background:#0b0b18;" loading="lazy" onclick="openLb(this.src,'🏷️ Outlook Distribution')"></div>
 </div><div class="chart-card span1">
   <div class="chart-hdr">
     <span class="chart-dot"></span>
-    <span class="chart-title">📈 Distribution: Salary</span>
-    <a href="/phase2/view/dist_Salary.png" target="_blank" class="chart-ext" title="Open full">⤢</a>
+    <span class="chart-title">🏷️ Temperature Distribution</span>
+    <a href="/phase2/view/cat_Temperature.png" target="_blank" class="chart-ext" title="Open full">⤢</a>
   </div>
-  <div class="chart-body"><img src="/phase2/view/dist_Salary.png" alt="📈 Distribution: Salary" style="width:100%;height:220px;object-fit:contain;border-radius:8px;cursor:zoom-in;background:#0b0b18;" loading="lazy" onclick="openLb(this.src,'📈 Distribution: Salary')"></div>
+  <div class="chart-body"><img src="/phase2/view/cat_Temperature.png" alt="🏷️ Temperature Distribution" style="width:100%;height:220px;object-fit:contain;border-radius:8px;cursor:zoom-in;background:#0b0b18;" loading="lazy" onclick="openLb(this.src,'🏷️ Temperature Distribution')"></div>
+</div><div class="chart-card span1">
+  <div class="chart-hdr">
+    <span class="chart-dot"></span>
+    <span class="chart-title">🏷️ Humidity Distribution</span>
+    <a href="/phase2/view/cat_Humidity.png" target="_blank" class="chart-ext" title="Open full">⤢</a>
+  </div>
+  <div class="chart-body"><img src="/phase2/view/cat_Humidity.png" alt="🏷️ Humidity Distribution" style="width:100%;height:220px;object-fit:contain;border-radius:8px;cursor:zoom-in;background:#0b0b18;" loading="lazy" onclick="openLb(this.src,'🏷️ Humidity Distribution')"></div>
+</div><div class="chart-card span1">
+  <div class="chart-hdr">
+    <span class="chart-dot"></span>
+    <span class="chart-title">🏷️ Wind Distribution</span>
+    <a href="/phase2/view/cat_Wind.png" target="_blank" class="chart-ext" title="Open full">⤢</a>
+  </div>
+  <div class="chart-body"><img src="/phase2/view/cat_Wind.png" alt="🏷️ Wind Distribution" style="width:100%;height:220px;object-fit:contain;border-radius:8px;cursor:zoom-in;background:#0b0b18;" loading="lazy" onclick="openLb(this.src,'🏷️ Wind Distribution')"></div>
+</div><div class="chart-card span1">
+  <div class="chart-hdr">
+    <span class="chart-dot"></span>
+    <span class="chart-title">🏷️ Play Tennis Distribution</span>
+    <a href="/phase2/view/cat_Play Tennis.png" target="_blank" class="chart-ext" title="Open full">⤢</a>
+  </div>
+  <div class="chart-body"><img src="/phase2/view/cat_Play Tennis.png" alt="🏷️ Play Tennis Distribution" style="width:100%;height:220px;object-fit:contain;border-radius:8px;cursor:zoom-in;background:#0b0b18;" loading="lazy" onclick="openLb(this.src,'🏷️ Play Tennis Distribution')"></div>
 </div><div class="chart-card span1h">
   <div class="chart-hdr">
     <span class="chart-dot"></span>
-    <span class="chart-title">🔗 Joint: YearsExperience & Salary</span>
-    <a href="/phase2/view/joint_plot_YearsExperience_vs_Salary.png" target="_blank" class="chart-ext" title="Open full">⤢</a>
+    <span class="chart-title">📊 Stacked: Outlook × Temperature</span>
+    <a href="/phase2/view/stacked_bar_Outlook_by_Temperature.png" target="_blank" class="chart-ext" title="Open full">⤢</a>
   </div>
-  <div class="chart-body"><img src="/phase2/view/joint_plot_YearsExperience_vs_Salary.png" alt="🔗 Joint: YearsExperience & Salary" style="width:100%;height:260px;object-fit:contain;border-radius:8px;cursor:zoom-in;background:#0b0b18;" loading="lazy" onclick="openLb(this.src,'🔗 Joint: YearsExperience & Salary')"></div>
+  <div class="chart-body"><img src="/phase2/view/stacked_bar_Outlook_by_Temperature.png" alt="📊 Stacked: Outlook × Temperature" style="width:100%;height:260px;object-fit:contain;border-radius:8px;cursor:zoom-in;background:#0b0b18;" loading="lazy" onclick="openLb(this.src,'📊 Stacked: Outlook × Temperature')"></div>
+</div><div class="chart-card span1h">
+  <div class="chart-hdr">
+    <span class="chart-dot"></span>
+    <span class="chart-title">📊 Stacked: Temperature × Humidity</span>
+    <a href="/phase2/view/stacked_bar_Temperature_by_Humidity.png" target="_blank" class="chart-ext" title="Open full">⤢</a>
+  </div>
+  <div class="chart-body"><img src="/phase2/view/stacked_bar_Temperature_by_Humidity.png" alt="📊 Stacked: Temperature × Humidity" style="width:100%;height:260px;object-fit:contain;border-radius:8px;cursor:zoom-in;background:#0b0b18;" loading="lazy" onclick="openLb(this.src,'📊 Stacked: Temperature × Humidity')"></div>
+</div><div class="chart-card span1h">
+  <div class="chart-hdr">
+    <span class="chart-dot"></span>
+    <span class="chart-title">📊 Stacked: Humidity × Wind</span>
+    <a href="/phase2/view/stacked_bar_Humidity_by_Wind.png" target="_blank" class="chart-ext" title="Open full">⤢</a>
+  </div>
+  <div class="chart-body"><img src="/phase2/view/stacked_bar_Humidity_by_Wind.png" alt="📊 Stacked: Humidity × Wind" style="width:100%;height:260px;object-fit:contain;border-radius:8px;cursor:zoom-in;background:#0b0b18;" loading="lazy" onclick="openLb(this.src,'📊 Stacked: Humidity × Wind')"></div>
+</div><div class="chart-card span1h">
+  <div class="chart-hdr">
+    <span class="chart-dot"></span>
+    <span class="chart-title">🗂️ Cross-Tab: Outlook × Temperature</span>
+    <a href="/phase2/view/cross_tab_Outlook_vs_Temperature.png" target="_blank" class="chart-ext" title="Open full">⤢</a>
+  </div>
+  <div class="chart-body"><img src="/phase2/view/cross_tab_Outlook_vs_Temperature.png" alt="🗂️ Cross-Tab: Outlook × Temperature" style="width:100%;height:260px;object-fit:contain;border-radius:8px;cursor:zoom-in;background:#0b0b18;" loading="lazy" onclick="openLb(this.src,'🗂️ Cross-Tab: Outlook × Temperature')"></div>
 </div></div>
 </section>
 
 </div>
 
 <footer class="db-footer">
-  Generated by <strong>BRight AI</strong> · 30 records · 2 features · 5 visualizations
+  Generated by <strong>BRight AI</strong> · 14 records · 5 features · 10 visualizations
 </footer>
 
 <!-- LIGHTBOX -->
