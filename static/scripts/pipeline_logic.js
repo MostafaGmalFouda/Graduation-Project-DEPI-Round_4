@@ -54,13 +54,18 @@ function updateStage(stageName, message, progress = 0) {
  * Start pipeline SSE stream.
  * If file is null, the backend uses the raw DF already stored in the session.
  */
-async function startPipelineStream(file) {
+async function startPipelineStream(file, devParams = {}) {
     const formData = new FormData();
     // Only append file if provided (first-time upload without prior /process call)
     if (file) {
         formData.append("file", file);
     }
-
+      if (devParams && typeof devParams === 'object') {
+        Object.entries(devParams).forEach(([key, value]) => {
+            formData.append(key, value);
+        });
+    }
+    
     try {
         const res = await fetch("/pipeline-stream", { method: "POST", body: formData });
         const reader = res.body.getReader();
