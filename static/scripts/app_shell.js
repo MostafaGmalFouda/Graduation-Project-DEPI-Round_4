@@ -63,13 +63,31 @@ function applyModeUI(mode) {
 document.getElementById('select-user-mode').onclick = () => enterApp('user');
 document.getElementById('select-dev-mode').onclick  = () => enterApp('developer');
 
-document.getElementById('mode-switch').onclick = () => {
+async function saveMode(mode) {
+    await fetch("/set-mode", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: mode })
+    });
+}
+
+document.getElementById('mode-switch').onclick = async () => {
     currentMode = currentMode === 'user' ? 'developer' : 'user';
     applyModeUI(currentMode);
+    await saveMode(currentMode);
 };
-document.getElementById('label-user-side').onclick = () => { currentMode = 'user'; applyModeUI('user'); };
-document.getElementById('label-dev-side').onclick  = () => { currentMode = 'developer'; applyModeUI('developer'); };
 
+document.getElementById('label-user-side').onclick = async () => {
+    currentMode = 'user';
+    applyModeUI('user');
+    await saveMode('user');
+};
+
+document.getElementById('label-dev-side').onclick = async () => {
+    currentMode = 'developer';
+    applyModeUI('developer');
+    await saveMode('developer');
+};
 
 // ── Generic pill-group helper ───────────────────────────────────────────
 function setupPillGroup(groupId, hiddenInputId, onSelect) {
