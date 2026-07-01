@@ -1,0 +1,17 @@
+Flask
+langchain
+langchain-community
+langchain-core
+langchain-huggingface
+faiss-cpu
+sentence-transformers
+transformers
+huggingface-hub
+torch
+pandas
+numpy
+openpyxl
+requests
+python-dotenv
+scikit-learn
+pypdf

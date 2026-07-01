@@ -17,6 +17,9 @@
         }
     </style>
 </head>
+{% include "components/chatbot.html" %}
+
+<link rel="stylesheet" href="{{ url_for('static',filename='css/chatbot.css') }}">
 
 <body>
 
@@ -445,5 +448,6 @@
     </script>
 
 </body>
+    <script src="{{ url_for('static', filename='scripts/chatbot.js') }}"></script>
 
 </html>
