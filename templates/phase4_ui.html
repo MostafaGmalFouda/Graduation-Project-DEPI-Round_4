@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BRight AI | Phase 4 — Machine Learning</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/phase4_style.css') }}" />
+</head>
+
+<body>
+
+    <div class="phase4-stage">
+
+        <div class="phase4-header">
+            <a href="/" class="back-link"><i class="fas fa-arrow-left"></i> Back to Hub</a>
+            <div class="logo-top">BRight <span>AI</span></div>
+            <div class="phase3-badge" style="border-color:var(--p4-panel-border);color:var(--p4-accent);background:rgba(255,64,129,0.08);">
+                <i class="fas fa-brain"></i> Phase 4 — Machine Learning Engine
+            </div>
+            <p id="mode-title-ml">Loading Mode...</p>
+        </div>
+
+        <!-- ═════════════════════════════════════
+             STEP NAVIGATION
+        ══════════════════════════════════════ -->
+        <nav class="step-nav ml" id="p4-step-nav">
+            <button class="step-btn ml-step active" data-step="setup"><i class="fas fa-upload"></i> Upload &amp; Target</button>
+            <button class="step-btn ml-step locked" data-step="train"><i class="fas fa-cogs"></i> Train</button>
+            <button class="step-btn ml-step locked" data-step="results"><i class="fas fa-chart-line"></i> Results &amp; Plots</button>
+            <button class="step-btn ml-step locked" data-step="predict"><i class="fas fa-magic"></i> Predict</button>
+        </nav>
+
+        <!-- ═════════════════════════════════════
+             STEP 1 — UPLOAD & TARGET SELECTION
+        ══════════════════════════════════════ -->
+        <div id="step-setup" class="step-panel ml-panel active">
+            <div class="upload-zone p4" id="p4-upload-zone">
+                <div class="upload-icon"><i class="fas fa-cloud-upload-alt"></i></div>
+                <h3>Drop a Dataset Here</h3>
+                <p>Supports CSV, XLSX, XLS — or reuse the clean data from Phase 1</p>
+                <input type="file" id="p4-file-input" accept=".csv,.xlsx,.xls" hidden />
+                <span class="upload-file-name p4" id="p4-file-name-label"></span>
+            </div>
+
+            <div id="p4-target-section" style="display:none;">
+                <p style="font-size:12px;color:var(--txt-dim);margin-bottom:8px;">
+                    <i class="fas fa-bullseye"></i> Pick the column you want to predict
+                    (<span id="p4-rows-cols"></span>)
+                </p>
+                <div class="target-picker" id="p4-target-picker"></div>
+                <p class="clustering-note">
+                    Don't want to predict anything specific? <a id="p4-skip-target">Skip target selection (Clustering)</a>
+                </p>
+                <button class="p4-btn" id="p4-confirm-target-btn" style="max-width:280px;margin:24px auto 0;" disabled>
+                    <i class="fas fa-arrow-right"></i> Continue to Training
+                </button>
+            </div>
+        </div>
+
+        <!-- ═════════════════════════════════════
+             STEP 2 — TRAIN (User: recommend / Developer: manual)
+        ══════════════════════════════════════ -->
+        <div id="step-train" class="step-panel ml-panel">
+
+            <!-- USER MODE: recommendations -->
+            <div id="p4-user-train-block">
+                <div class="ml-mode-banner">
+                    <i class="fas fa-wand-magic-sparkles"></i>
+                    BRight AI will recommend and auto-train the best model for your data.
+                </div>
+                <div class="recommend-grid" id="p4-recommend-grid"></div>
+                <button class="p4-btn" id="p4-user-train-btn" style="max-width:320px;margin:10px auto 0;">
+                    <i class="fas fa-bolt"></i> Train Top Recommended Model
+                </button>
+            </div>
+
+            <!-- DEVELOPER MODE: manual control -->
+            <div id="p4-dev-train-block" style="display:none;">
+                <div class="ml-card-grid">
+                    <div class="ml-card">
+                        <div class="ml-card-title"><i class="fas fa-cube"></i> Choose Model</div>
+                        <div class="model-select-grid" id="p4-model-select-grid"></div>
+                    </div>
+
+                    <div class="ml-card">
+                        <div class="ml-card-title"><i class="fas fa-sliders"></i> Hyperparameters</div>
+                        <div id="p4-params-fields">
+                            <p style="font-size:11px;color:var(--txt-dim);">Select a model to see its parameters.</p>
+                        </div>
+                    </div>
+
+                    <div class="ml-card">
+                        <div class="ml-card-title"><i class="fas fa-magnifying-glass-chart"></i> Tuning &amp; Validation</div>
+
+                        <div class="dev-toggle-row ml">
+                            <div>
+                                <div style="font-size:12px;color:var(--txt);">Enable Hyperparameter Tuning</div>
+                                <div style="font-size:10px;color:var(--txt-dim);">Searches multiple parameter combinations</div>
+                            </div>
+                            <div class="dev-switch ml" id="p4-tuning-switch"><div class="dev-switch-knob"></div></div>
+                        </div>
+
+                        <div id="p4-tuning-options" style="display:none;">
+                            <div class="param-field">
+                                <label>Search Method</label>
+                                <div class="model-select-grid" style="grid-template-columns:1fr 1fr;">
+                                    <div class="model-select-option selected" data-tune="grid">Grid Search</div>
+                                    <div class="model-select-option" data-tune="random">Random Search</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="param-field">
+                            <label>Cross-Validation Folds (cv) <span id="p4-cv-value" style="color:var(--p4-accent);">5</span></label>
+                            <input type="range" id="p4-cv-slider" min="2" max="10" step="1" value="5" style="width:100%;accent-color:var(--p4-accent);">
+                        </div>
+
+                        <div class="param-field">
+                            <label>Test Size <span id="p4-testsize-value" style="color:var(--p4-accent);">20%</span></label>
+                            <input type="range" id="p4-testsize-slider" min="0.1" max="0.4" step="0.05" value="0.2" style="width:100%;accent-color:var(--p4-accent);">
+                        </div>
+                    </div>
+                </div>
+
+                <button class="p4-btn" id="p4-dev-train-btn" style="max-width:320px;margin:10px auto 0;">
+                    <i class="fas fa-bolt"></i> Train Model
+                </button>
+            </div>
+
+            <div id="p4-training-status" class="training-status" style="display:none;">
+                <i class="fas fa-spinner fa-spin"></i> Training model — this may take a moment...
+            </div>
+        </div>
+
+        <!-- ═════════════════════════════════════
+             STEP 3 — RESULTS & PLOTS
+        ══════════════════════════════════════ -->
+        <div id="step-results" class="step-panel ml-panel">
+            <div class="model-summary-bar" id="p4-model-summary"></div>
+            <div class="metrics-grid" id="p4-metrics-grid"></div>
+
+            <div id="p4-tuning-summary" class="p3-result-card" style="display:none;background:var(--p4-panel-bg);border:1px solid var(--p4-panel-border);border-radius:18px;padding:22px;margin-bottom:24px;text-align:left;"></div>
+
+            <div class="plot-buttons-row" id="p4-plot-buttons"></div>
+            <div class="plot-gallery" id="p4-plot-gallery"></div>
+
+            <div style="margin-top:30px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap;">
+                <a href="/phase4/download-model" class="p4-btn secondary" style="max-width:240px;text-decoration:none;display:inline-flex;">
+                    <i class="fas fa-download"></i> Download Trained Model
+                </a>
+                <button class="p4-btn secondary" id="p4-goto-predict-btn" style="max-width:240px;">
+                    <i class="fas fa-magic"></i> Try Predictions
+                </button>
+            </div>
+        </div>
+
+        <!-- ═════════════════════════════════════
+             STEP 4 — PREDICT
+        ══════════════════════════════════════ -->
+        <div id="step-predict" class="step-panel ml-panel">
+            <div class="ml-card" style="max-width:800px;margin:0 auto;">
+                <div class="ml-card-title"><i class="fas fa-magic"></i> Single-Record Prediction</div>
+                <p style="font-size:12px;color:var(--txt-dim);margin-bottom:18px;">Fill in feature values below to get a live prediction from the trained model.</p>
+                <div class="predict-form-grid" id="p4-predict-form"></div>
+                <button class="p4-btn" id="p4-predict-btn"><i class="fas fa-bolt"></i> Predict</button>
+            </div>
+
+            <div id="p4-prediction-result"></div>
+        </div>
+
+    </div><!-- /phase4-stage -->
+
+    <!-- Lightbox for plot zoom -->
+    <div id="p4-lightbox" onclick="closeP4Lightbox()">
+        <img id="p4-lightbox-img" src="" onclick="event.stopPropagation()">
+    </div>
+
+    <!-- Expose mode to phase4_logic.js BEFORE it loads -->
+    <script>
+        const P4_MODE = "{{ mode }}";
+    </script>
+    <script src="{{ url_for('static', filename='scripts/phase4_logic.js') }}"></script>
+
+</body>
+
+</html>

@@ -18,6 +18,24 @@ from Phase_1.OutlierHandler import OutlierHandler
 # Import Phase_2 DataVisualizer
 from Phase_2.DataVisualizer import DataVisualizer
 
+# Import Phase_3 NLP modules
+from Phase_3_NLP.TextPreprocessor import TextPreprocessor
+from Phase_3_NLP.NLPAnalyzer import NLPAnalyzer
+from Phase_3_NLP.TextVectorizer import TextVectorizer
+
+# Import Phase_4 RAG modules
+from Phase_4_RAG.TextChunker import TextChunker
+from Phase_4_RAG.VectorStoreManager import VectorStoreManager
+from Phase_4_RAG.RAGOrchestrator import RAGOrchestrator
+
+# Import Phase_5 ML modules
+from Phase_5_ML.ModelFactory import ModelFactory
+from Phase_5_ML.ModelTrainer import ModelTrainer
+from Phase_5_ML.ModelEvaluator import ModelEvaluator
+from Phase_5_ML.Predictor import Predictor
+from Phase_5_ML.ModelVisualizer import ModelVisualizer
+from Phase_5_ML.MLPipeline import MLPipeline
+
 
 # ── App Setup ─────────────────────────────────────────────────────────────────
 
@@ -39,6 +57,18 @@ os.makedirs(REPORTS_FOLDER, exist_ok=True)
 # Folder to store session DataFrames (pickled)
 SESSION_DATA_FOLDER = os.path.join(BASE_DIR, 'session_data')
 os.makedirs(SESSION_DATA_FOLDER, exist_ok=True)
+
+# Folder to store trained ML models (joblib)
+MODELS_FOLDER = os.path.join(BASE_DIR, 'session_data', 'models')
+os.makedirs(MODELS_FOLDER, exist_ok=True)
+
+# Folder to store ML visualization plots (Phase 5)
+ML_PLOTS_FOLDER = os.path.join(BASE_DIR, 'Phase_5_ML', 'plots')
+os.makedirs(ML_PLOTS_FOLDER, exist_ok=True)
+
+# Folder used by the RAG vector store (Phase 4) — one persistent Chroma DB per session
+VECTOR_STORE_FOLDER = os.path.join(BASE_DIR, 'session_data', 'vector_store')
+os.makedirs(VECTOR_STORE_FOLDER, exist_ok=True)
 
 # Allowed file extensions
 def allowed_file(filename):
@@ -136,7 +166,7 @@ def resolve_column_type(col_name: str, df: pd.DataFrame, original_schema: dict) 
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return render_template('index.html', mode=session.get('mode'))
 
 
 @app.route('/process', methods=['POST'])
@@ -696,6 +726,643 @@ def phase2_view(filename):
 def phase2_download(filename):
     file_path = os.path.join(PLOTS_FOLDER, filename)
     return send_file(file_path, as_attachment=True)
+
+
+# ════════════════════════════════════════════════════════════
+# PHASE 3 — NLP & RAG Routes (text intelligence + Q&A over data)
+# ════════════════════════════════════════════════════════════
+
+# In-memory cache: one VectorStoreManager + RAGOrchestrator per Flask
+# session id, so each user's RAG index stays isolated. Kept in-process
+# (not pickled) because a fitted vectorizer/vector-db connection isn't
+# cleanly picklable — acceptable for a single-process dev/demo deployment.
+_RAG_REGISTRY = {}
+
+
+def _session_id() -> str:
+    """Stable per-browser-session id, created once and stored in the Flask session."""
+    if 'sid' not in session:
+        session['sid'] = uuid.uuid4().hex
+    return session['sid']
+
+
+def get_nlp_df() -> pd.DataFrame:
+    """Return the NLP-processed DataFrame stored in the session, or None."""
+    path = session.get('nlp_df_path')
+    return load_session_df(path)
+
+
+@app.route('/ai-pipeline')
+def ai_pipeline():
+    """
+    Unified AI Pipeline entry point — the connected ML -> NLP -> RAG
+    journey. Replaces separately-navigated Phase 3 / Phase 4 pages with
+    a single continuous flow: train a model, then move straight into
+    text intelligence on the same dataset, then land on the RAG chatbot.
+
+    All existing /phase3/* and /phase4/* JSON API routes are reused
+    as-is under the hood — this route only serves the new combined
+    template that orchestrates calls to them in sequence.
+    """
+    mode = session.get("mode", "user")
+    return render_template("ai_pipeline_ui.html", mode=mode)
+
+
+@app.route('/phase3')
+def phase3():
+    """Phase 3 entry point — NLP & RAG module, respects the global User/Developer mode."""
+    mode = session.get("mode", "user")
+    return render_template("phase3_ui.html", mode=mode)
+
+
+@app.route('/phase3/detect-columns', methods=['POST'])
+def phase3_detect_columns():
+    """
+    Accept an uploaded file (or reuse the clean DF already in session)
+    and return its column list, so the UI can let the user pick a text
+    column to run NLP/RAG on.
+    """
+    df = get_clean_df()
+
+    if df is None:
+        file = request.files.get('file')
+        if not file or not allowed_file(file.filename):
+            return jsonify({"status": "error", "message": "No data available. Upload a file or run Phase 1 first."}), 400
+
+        filename = secure_filename(file.filename)
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file.save(filepath)
+
+        try:
+            df = DataLoader(filepath).load()
+            if df is None or df.empty:
+                return jsonify({"status": "error", "message": "Empty or invalid file."}), 400
+            raw_path = save_session_df(df, 'raw')
+            session['raw_df_path'] = raw_path
+        except Exception as e:
+            return jsonify({"status": "error", "message": str(e)}), 500
+
+    # Only text-like (object) columns make sense for NLP/RAG
+    text_columns = [c for c in df.columns if df[c].dtype == object]
+    all_columns = list(df.columns)
+
+    return jsonify({
+        "status": "success",
+        "rows": df.shape[0],
+        "cols": df.shape[1],
+        "columns": all_columns,
+        "text_columns": text_columns,
+    })
+
+
+@app.route('/phase3/clean-text', methods=['POST'])
+def phase3_clean_text():
+    """
+    Run the TextPreprocessor cleaning pipeline on the chosen text column.
+    Developer Mode lets the caller toggle individual cleaning steps;
+    User Mode always runs the full recommended pipeline.
+    """
+    text_col = request.form.get('text_column')
+    df = get_clean_df() if get_clean_df() is not None else get_raw_df()
+
+    if df is None or not text_col or text_col not in df.columns:
+        return jsonify({"status": "error", "message": "No data or invalid text column."}), 400
+
+    steps = request.form.get('steps', 'all')  # 'all' or comma list: lowercase,clean,stopwords,tokenize,lemmatize
+
+    try:
+        pre = TextPreprocessor(df)
+
+        if steps == 'all':
+            result = pre.clean_pipeline(text_col)
+        else:
+            chosen = set(s.strip() for s in steps.split(','))
+            if 'lowercase' in chosen:
+                pre.lowercase(text_col)
+            if 'clean' in chosen:
+                pre.remove_punctuation_and_urls(text_col)
+            if 'stopwords' in chosen:
+                pre.remove_stopwords(text_col)
+            if 'tokenize' in chosen or 'lemmatize' in chosen:
+                pre.tokenize(text_col)
+            if 'lemmatize' in chosen:
+                pre.apply_lemmatization(f"{text_col}_tokens")
+            result = pre.get_data()
+
+        nlp_path = save_session_df(result, 'nlp')
+        session['nlp_df_path'] = nlp_path
+        session['nlp_text_col'] = text_col
+
+        preview_cols = [text_col] + [c for c in result.columns if c.startswith(f"{text_col}_token")]
+        preview_cols = [c for c in preview_cols if c in result.columns]
+        preview_html = result[preview_cols].head(8).to_html(classes='preview-table', index=False)
+
+        return jsonify({
+            "status": "success",
+            "preview": preview_html,
+            "rows": result.shape[0],
+            "cols": result.shape[1],
+        })
+
+    except Exception as e:
+        print("Phase3 clean-text error:", e)
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/phase3/analyze', methods=['POST'])
+def phase3_analyze():
+    """
+    Run NLPAnalyzer on the cleaned text column: lengths, sentiment,
+    named entities, n-grams, and a corpus-level summary — all in one call.
+    """
+    df = get_nlp_df()
+    text_col = session.get('nlp_text_col')
+
+    if df is None or not text_col:
+        return jsonify({"status": "error", "message": "Run text cleaning first."}), 400
+
+    ngram_n = int(request.form.get('ngram_n', 2))
+    run_ner = request.form.get('run_ner', 'true') == 'true'
+
+    try:
+        analyzer = NLPAnalyzer(df)
+
+        lengths_df = analyzer.compute_text_lengths(text_col)
+        sentiment_df = analyzer.analyze_sentiment(text_col)
+
+        summary = analyzer.get_corpus_summary(text_col)
+
+        sentiment_counts = sentiment_df[f"{text_col}_sentiment_label"].value_counts().to_dict()
+
+        token_col = f"{text_col}_tokens_lemmatized"
+        if token_col not in sentiment_df.columns:
+            token_col = f"{text_col}_tokens"
+
+        ngrams_result = []
+        if token_col in sentiment_df.columns:
+            top_ngrams = analyzer.extract_ngrams(token_col, n=ngram_n)[:15]
+            ngrams_result = [{"ngram": " ".join(g), "count": c} for g, c in top_ngrams]
+
+        entities_result = {}
+        if run_ner:
+            try:
+                ner = analyzer.extract_named_entities(text_col)
+                entities_result = {
+                    "label_counts": ner["label_counts"],
+                    "top_entities": list(ner["entity_counts"].items())[:15],
+                }
+            except RuntimeError as ner_err:
+                entities_result = {"error": str(ner_err)}
+
+        # persist enriched df (with length/sentiment columns) back to session
+        session['nlp_df_path'] = save_session_df(sentiment_df, 'nlp')
+
+        return jsonify({
+            "status": "success",
+            "corpus_summary": summary,
+            "sentiment_distribution": sentiment_counts,
+            "avg_polarity": round(float(sentiment_df[f"{text_col}_polarity"].mean()), 3),
+            "avg_subjectivity": round(float(sentiment_df[f"{text_col}_subjectivity"].mean()), 3),
+            "top_ngrams": ngrams_result,
+            "entities": entities_result,
+            "sample_rows": sentiment_df[[text_col, f"{text_col}_sentiment_label", f"{text_col}_polarity"]]
+                .head(8).to_dict(orient='records'),
+        })
+
+    except Exception as e:
+        print("Phase3 analyze error:", e)
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/phase3/vectorize', methods=['POST'])
+def phase3_vectorize():
+    """Fit TF-IDF or Bag-of-Words on the cleaned text column and return top terms."""
+    df = get_nlp_df()
+    text_col = session.get('nlp_text_col')
+    method = request.form.get('method', 'tfidf')
+    max_features = int(request.form.get('max_features', 300))
+
+    if df is None or not text_col:
+        return jsonify({"status": "error", "message": "Run text cleaning first."}), 400
+
+    try:
+        vectorizer = TextVectorizer(df)
+        if method == 'bow':
+            matrix = vectorizer.fit_bow(text_col, max_features=max_features)
+            top_terms = []
+        else:
+            matrix = vectorizer.fit_tfidf(text_col, max_features=max_features)
+            top_terms = [{"term": t, "score": round(float(s), 4)} for t, s in vectorizer.get_top_terms(20)]
+
+        return jsonify({
+            "status": "success",
+            "method": method,
+            "matrix_shape": list(matrix.shape),
+            "vocabulary_size": len(vectorizer.get_feature_names()),
+            "top_terms": top_terms,
+        })
+
+    except Exception as e:
+        print("Phase3 vectorize error:", e)
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/phase3/rag/status', methods=['GET'])
+def phase3_rag_status():
+    """
+    Lightweight pre-flight check the frontend calls when the RAG/chatbot
+    stage loads, so a missing ANTHROPIC_API_KEY is surfaced clearly
+    BEFORE the person builds an index and starts typing questions —
+    rather than failing silently on the first chat message with no
+    context for why.
+    """
+    has_key = bool(os.environ.get("ANTHROPIC_API_KEY"))
+    return jsonify({
+        "status": "success",
+        "llm_configured": has_key,
+        "message": (
+            "RAG chatbot is ready." if has_key else
+            "ANTHROPIC_API_KEY is not set on the server. The index can "
+            "still be built, but the chatbot won't be able to generate "
+            "answers until an administrator sets this environment "
+            "variable and restarts the app."
+        ),
+    })
+
+
+@app.route('/phase3/rag/build-index', methods=['POST'])
+def phase3_rag_build_index():
+    """
+    Build (or rebuild) the RAG vector index from the cleaned text column:
+        TextChunker → VectorStoreManager (embed + store in ChromaDB)
+    """
+    df = get_nlp_df()
+    text_col = session.get('nlp_text_col')
+
+    if df is None or not text_col:
+        return jsonify({"status": "error", "message": "Run text cleaning first."}), 400
+
+    chunk_size = int(request.form.get('chunk_size', 120))
+    chunk_overlap = int(request.form.get('chunk_overlap', 20))
+    split_mode = request.form.get('split_mode', 'token')  # 'token' | 'character'
+
+    sid = _session_id()
+    persist_dir = os.path.join(VECTOR_STORE_FOLDER, sid)
+    os.makedirs(persist_dir, exist_ok=True)
+
+    try:
+        chunker = TextChunker(df)
+        if split_mode == 'character':
+            chunks_df = chunker.split_by_character(text_col, chunk_size=chunk_size, chunk_overlap=chunk_overlap)
+        else:
+            chunks_df = chunker.split_by_token(text_col, chunk_size=chunk_size, chunk_overlap=chunk_overlap)
+
+        if chunks_df.empty:
+            return jsonify({"status": "error", "message": "No text chunks were produced — check the selected column."}), 400
+
+        store = VectorStoreManager()
+        store.initialize_vector_db(
+            collection_name=f"collection_{sid}",
+            persist_directory=persist_dir,
+        )
+
+        vectors = store.generate_embeddings(chunks_df["chunk_text"].tolist())
+        metadata = chunks_df[["source_row", "chunk_id"]].to_dict(orient="records")
+        store.insert_vectors(vectors, metadata, documents=chunks_df["chunk_text"].tolist())
+
+        rag = RAGOrchestrator()
+        rag.set_vector_store(store)
+
+        _RAG_REGISTRY[sid] = {"store": store, "rag": rag}
+        session['rag_ready'] = True
+        session['rag_chunk_count'] = int(len(chunks_df))
+
+        return jsonify({
+            "status": "success",
+            "chunk_count": int(len(chunks_df)),
+            "embedding_dim": int(vectors.shape[1]),
+        })
+
+    except Exception as e:
+        print("Phase3 RAG build-index error:", e)
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/phase3/rag/ask', methods=['POST'])
+def phase3_rag_ask():
+    """Ask a natural-language question against the built RAG index."""
+    sid = _session_id()
+    entry = _RAG_REGISTRY.get(sid)
+
+    if entry is None or not session.get('rag_ready'):
+        return jsonify({"status": "error", "message": "No RAG index built yet. Build the index first."}), 400
+
+    question = request.form.get('question', '').strip()
+    k = int(request.form.get('k', 5))
+
+    if not question:
+        return jsonify({"status": "error", "message": "Question cannot be empty."}), 400
+
+    try:
+        retrieved = entry["store"].similarity_search(question, k=k)
+        prompt = entry["rag"].build_prompt(question, retrieved)
+        answer = entry["rag"].generate_answer(prompt)
+
+        return jsonify({
+            "status": "success",
+            "answer": answer,
+            "sources": [
+                {"text": r["text"][:240], "distance": round(float(r["distance"]), 4)}
+                for r in retrieved
+            ],
+        })
+
+    except EnvironmentError as e:
+        # Missing ANTHROPIC_API_KEY — surface a clear, actionable message
+        return jsonify({"status": "error", "message": str(e)}), 400
+    except Exception as e:
+        print("Phase3 RAG ask error:", e)
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+# ════════════════════════════════════════════════════════════
+# PHASE 4 — Machine Learning Routes (User & Developer Modes)
+# ════════════════════════════════════════════════════════════
+
+# In-memory cache: one MLPipeline per browser session id, since a
+# trained scikit-learn model + the live MLPipeline orchestrator aren't
+# things we round-trip through the session cookie — same pattern as
+# the RAG registry above.
+_ML_REGISTRY = {}
+
+
+@app.route('/phase4')
+def phase4():
+    """Phase 4 entry point — Machine Learning module, respects the global User/Developer mode."""
+    mode = session.get("mode", "user")
+    return render_template("phase4_ui.html", mode=mode)
+
+
+@app.route('/phase4/detect-columns', methods=['POST'])
+def phase4_detect_columns():
+    """
+    Use the clean DF from Phase 1 session if available, otherwise accept
+    a fresh file upload. Returns the column list + a numeric/categorical
+    hint so the UI can warn before an unsuitable target is chosen.
+    """
+    df = get_clean_df()
+
+    if df is None:
+        file = request.files.get('file')
+        if not file or not allowed_file(file.filename):
+            return jsonify({"status": "error", "message": "No data available. Upload a file or run Phase 1 first."}), 400
+
+        filename = secure_filename(file.filename)
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file.save(filepath)
+
+        try:
+            df = DataLoader(filepath).load()
+            if df is None or df.empty:
+                return jsonify({"status": "error", "message": "Empty or invalid file."}), 400
+            raw_path = save_session_df(df, 'raw')
+            session['raw_df_path'] = raw_path
+            # also stash it as "clean" so ML routes downstream can reuse it directly
+            session['clean_df_path'] = save_session_df(df, 'clean')
+        except Exception as e:
+            return jsonify({"status": "error", "message": str(e)}), 500
+
+    columns = [
+        {"name": col, "dtype": str(df[col].dtype), "n_unique": int(df[col].nunique())}
+        for col in df.columns
+    ]
+
+    return jsonify({
+        "status": "success",
+        "rows": df.shape[0],
+        "cols": df.shape[1],
+        "columns": columns,
+    })
+
+
+@app.route('/phase4/recommend', methods=['POST'])
+def phase4_recommend():
+    """User Mode step 1: given a target column, return ranked model recommendations."""
+    df = get_clean_df()
+    target = request.form.get('target') or None
+
+    if df is None:
+        return jsonify({"status": "error", "message": "No data available."}), 400
+
+    try:
+        task_type = MLPipeline._infer_task_type(df[target]) if target else "clustering"
+        factory = ModelFactory(task_type=task_type)
+        recommendations = factory.recommend_models(task_type, df)
+
+        return jsonify({
+            "status": "success",
+            "task_type": task_type,
+            "recommendations": recommendations,
+        })
+
+    except Exception as e:
+        print("Phase4 recommend error:", e)
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/phase4/available-models', methods=['GET'])
+def phase4_available_models():
+    """Developer Mode helper: list every model name supported per task type."""
+    factory = ModelFactory()
+    return jsonify({"status": "success", "models": factory.available_models()})
+
+
+@app.route('/phase4/train', methods=['POST'])
+def phase4_train():
+    """
+    Single entry point for BOTH modes:
+      - User Mode      : only 'target' is required — top recommended model
+                          is auto-selected and trained with defaults.
+      - Developer Mode : 'target', 'model_name', optional 'params' (JSON),
+                          optional 'tuning' (JSON), and 'cv' are honored.
+    """
+    df = get_clean_df()
+    if df is None:
+        return jsonify({"status": "error", "message": "No data available. Run Phase 1 first."}), 400
+
+    mode = request.form.get('run_mode', session.get('mode', 'user'))
+    target = request.form.get('target') or None
+    test_size = float(request.form.get('test_size', 0.2))
+
+    sid = _session_id()
+
+    try:
+        if mode == 'developer':
+            model_name = request.form.get('model_name', 'random_forest')
+            params_raw = request.form.get('params', '{}')
+            tuning_raw = request.form.get('tuning', '')
+            cv = int(request.form.get('cv', 5))
+
+            params = json.loads(params_raw) if params_raw else {}
+            tuning = json.loads(tuning_raw) if tuning_raw else None
+
+            # Guard against a stale/mismatched model choice (e.g. the
+            # frontend was loaded before the target column was picked,
+            # or a request was crafted by hand). Without this check,
+            # asking ModelFactory for a classifier on a continuous target
+            # (or vice versa) reaches all the way into sklearn's .fit()
+            # and crashes with a cryptic "Unknown label type: continuous"
+            # error instead of a clean, actionable message.
+            inferred_task_type = MLPipeline._infer_task_type(df[target]) if target else "clustering"
+            factory_check = ModelFactory(task_type=inferred_task_type)
+            supported_models = factory_check.available_models().get(inferred_task_type, [])
+
+            if model_name not in supported_models:
+                return jsonify({
+                    "status": "error",
+                    "message": (
+                        f"'{model_name.replace('_', ' ')}' does not support the detected task type "
+                        f"'{inferred_task_type}' for this target column. "
+                        f"Compatible models: {', '.join(m.replace('_', ' ') for m in supported_models)}."
+                    ),
+                }), 400
+
+            pipeline = MLPipeline(mode='developer')
+            result = pipeline.run_developer_mode(
+                df, target=target, model_name=model_name, params=params,
+                test_size=test_size, cv=cv, tuning=tuning,
+            )
+        else:
+            pipeline = MLPipeline(mode='user')
+            result = pipeline.run_user_mode(df, target=target, test_size=test_size)
+
+        _ML_REGISTRY[sid] = pipeline
+        session['ml_ready'] = True
+        session['ml_task_type'] = pipeline.task_type
+        session['ml_target'] = target
+
+        # numpy/pandas types aren't directly JSON serializable — sanitize
+        safe_result = json.loads(json.dumps(result, default=lambda o: float(o) if isinstance(o, (np.floating, np.integer)) else str(o)))
+
+        return jsonify({"status": "success", "result": safe_result})
+
+    except Exception as e:
+        print("Phase4 train error:", e)
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/phase4/predict', methods=['POST'])
+def phase4_predict():
+    """Single-record prediction using the currently trained model for this session."""
+    sid = _session_id()
+    pipeline = _ML_REGISTRY.get(sid)
+
+    if pipeline is None or pipeline.predictor is None:
+        return jsonify({"status": "error", "message": "No trained model yet. Train a model first."}), 400
+
+    sample_raw = request.form.get('sample', '{}')
+
+    try:
+        sample = json.loads(sample_raw)
+        result = pipeline.predictor.predict_single(sample)
+        explanation = pipeline.predictor.explain_prediction(sample)
+
+        safe_result = {
+            "prediction": result["prediction"] if isinstance(result["prediction"], (int, float, str)) else str(result["prediction"]),
+            "probabilities": result.get("probabilities"),
+            "top_contributing_features": explanation.get("top_contributing_features"),
+        }
+        return jsonify({"status": "success", "result": safe_result})
+
+    except Exception as e:
+        print("Phase4 predict error:", e)
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/phase4/plot', methods=['POST'])
+def phase4_plot():
+    """
+    Generate a ModelVisualizer plot for the currently trained model and
+    save it as a PNG the frontend can <img> directly.
+    """
+    sid = _session_id()
+    pipeline = _ML_REGISTRY.get(sid)
+
+    if pipeline is None or pipeline.evaluator is None:
+        return jsonify({"status": "error", "message": "No trained model yet. Train a model first."}), 400
+
+    plot_type = request.form.get('plot_type', 'confusion_matrix')
+
+    try:
+        viz = pipeline.visualizer
+        fig = None
+
+        if plot_type == 'confusion_matrix':
+            cm = pipeline.evaluator.confusion_matrix()
+            fig = viz.plot_confusion_matrix(cm)
+
+        elif plot_type == 'roc_curve':
+            if not hasattr(pipeline.evaluator.model, 'predict_proba'):
+                return jsonify({"status": "error", "message": "Selected model does not support ROC curves."}), 400
+            y_test = pipeline.evaluator.y_test
+            proba = pipeline.evaluator.model.predict_proba(pipeline.evaluator.X_test)
+            classes = getattr(pipeline.evaluator.model, "classes_", None)
+            if classes is not None and len(classes) == 2:
+                fig = viz.plot_roc_curve(y_true=(y_test == classes[1]).astype(int), y_score=proba[:, 1])
+            else:
+                return jsonify({"status": "error", "message": "ROC curve currently supports binary classification only."}), 400
+
+        elif plot_type == 'feature_importance':
+            model = pipeline.evaluator.model
+            X_test = pipeline.evaluator.X_test
+            if hasattr(model, 'feature_importances_'):
+                importance_df = pd.DataFrame({"feature": X_test.columns, "importance": model.feature_importances_})
+            elif hasattr(model, 'coef_'):
+                coef = np.ravel(model.coef_)
+                importance_df = pd.DataFrame({"feature": X_test.columns, "importance": np.abs(coef)})
+            else:
+                return jsonify({"status": "error", "message": "Selected model has no feature importance to plot."}), 400
+            fig = viz.plot_feature_importance(importance_df)
+
+        elif plot_type == 'actual_vs_predicted':
+            y_test = pipeline.evaluator.y_test
+            y_pred = pipeline.evaluator.evaluate()
+            fig = viz.plot_actual_vs_predicted(y_test, y_pred)
+
+        elif plot_type == 'correlation_matrix':
+            fig = viz.plot_correlation_matrix(pipeline.evaluator.X_test)
+
+        else:
+            return jsonify({"status": "error", "message": f"Unknown plot type: {plot_type}"}), 400
+
+        out_name = f"{plot_type}_{uuid.uuid4().hex[:8]}.png"
+        out_path = os.path.join(ML_PLOTS_FOLDER, out_name)
+        viz.save_plot(fig, out_path)
+
+        return jsonify({"status": "success", "view_url": f"/phase4/view/{out_name}"})
+
+    except Exception as e:
+        print("Phase4 plot error:", e)
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/phase4/view/<filename>')
+def phase4_view(filename):
+    return send_from_directory(ML_PLOTS_FOLDER, filename)
+
+
+@app.route('/phase4/download-model', methods=['GET'])
+def phase4_download_model():
+    """Persist the currently trained model to disk via joblib and serve it for download."""
+    sid = _session_id()
+    pipeline = _ML_REGISTRY.get(sid)
+
+    if pipeline is None or pipeline.trainer is None or pipeline.trainer.model is None:
+        return jsonify({"status": "error", "message": "No trained model yet."}), 400
+
+    model_path = os.path.join(MODELS_FOLDER, f"model_{sid}.joblib")
+    pipeline.trainer.save_model(model_path)
+    return send_file(model_path, as_attachment=True, download_name="trained_model.joblib")
 
 
 if __name__ == '__main__':

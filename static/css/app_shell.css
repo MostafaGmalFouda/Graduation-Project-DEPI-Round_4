@@ -152,6 +152,27 @@ body:has(#sidebar.collapsed) #content-area {
     flex-shrink: 0;
 }
 
+.step-mini-tag {
+    margin-left: auto;
+    font-size: 8px;
+    letter-spacing: 0.5px;
+    font-weight: 700;
+    color: var(--txt-dim);
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 6px;
+    padding: 2px 7px;
+    text-transform: uppercase;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+.sidebar-item.active .step-mini-tag {
+    color: var(--neon-c);
+    border-color: rgba(20,255,208,0.3);
+    background: rgba(20,255,208,0.08);
+}
+#sidebar.collapsed .step-mini-tag { display: none; }
+
 .sidebar-footer {
     padding: 16px;
     border-top: 1px solid var(--border-glass);

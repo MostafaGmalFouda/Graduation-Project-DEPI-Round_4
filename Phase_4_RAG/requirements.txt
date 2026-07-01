@@ -1,0 +1,9 @@
+sentence-transformers>=2.6
+chromadb>=0.5
+anthropic>=0.30
+pandas>=2.0
+numpy>=1.24
+
+# Set your Anthropic API key before using RAGOrchestrator:
+#   export ANTHROPIC_API_KEY="sk-ant-..."
+# Get a key at: https://console.anthropic.com/
