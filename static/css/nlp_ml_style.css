@@ -1,0 +1,100 @@
+/* =====================================================================
+   BRight AI — NLP / ML shared styles
+   Builds on top of phase2_style.css (upload-zone, columns-panel, tabs,
+   chart-config-card, viz-results-area, etc.) — only adds what's new.
+===================================================================== */
+
+.mode-panel { display: none; }
+
+.guessed-badge {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--neon-c);
+    border: 1px solid var(--neon-c);
+    border-radius: 6px;
+    padding: 2px 7px;
+    margin-left: 8px;
+    vertical-align: middle;
+}
+
+.hint {
+    font-weight: 400;
+    color: var(--txt-dim);
+    font-size: 11.5px;
+}
+
+/* ── Metric cards row (accuracy / f1 / rmse / r2 ...) ─────────────── */
+.metric-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 14px;
+    margin-bottom: 22px;
+}
+.metric-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-glass);
+    border-radius: 14px;
+    padding: 16px 18px;
+    text-align: center;
+    backdrop-filter: blur(10px);
+}
+.metric-card .metric-value {
+    font-size: 26px;
+    font-weight: 800;
+    color: var(--neon-c);
+    line-height: 1.3;
+}
+.metric-card .metric-label {
+    font-size: 11.5px;
+    color: var(--txt-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-top: 4px;
+}
+
+/* ── Sentiment / distribution summary ──────────────────────────────── */
+.sentiment-pill-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+.sentiment-pill {
+    padding: 8px 16px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 700;
+    border: 1px solid var(--border-glass);
+}
+.sentiment-pill.positive { color: #06d49d; border-color: #06d49d; background: rgba(6,212,157,0.08); }
+.sentiment-pill.negative { color: #f43f5e; border-color: #f43f5e; background: rgba(244,63,94,0.08); }
+.sentiment-pill.neutral  { color: #a855f7; border-color: #a855f7; background: rgba(168,85,247,0.08); }
+
+/* ── Keyword tags ───────────────────────────────────────────────────── */
+.keyword-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.keyword-tag {
+    padding: 5px 12px;
+    border-radius: 999px;
+    background: rgba(20,255,208,0.08);
+    border: 1px solid rgba(20,255,208,0.25);
+    color: var(--neon-c);
+    font-size: 12.5px;
+    font-weight: 600;
+}
+
+/* ── Prediction form / result ──────────────────────────────────────── */
+.predict-result {
+    margin-top: 16px;
+    padding: 16px 20px;
+    border-radius: 12px;
+    background: rgba(163,51,255,0.08);
+    border: 1px solid rgba(163,51,255,0.3);
+    display: none;
+    font-size: 14px;
+}
+.predict-result.show { display: block; }
+.predict-result .predict-value {
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--neon-p);
+}
+
+/* ── Reused disabled-state helper ──────────────────────────────────── */
+.run-all-btn:disabled i { opacity: 0.6; }

@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
     <link rel="stylesheet" href="{{ url_for('static', filename='css/phase2_style.css') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/app_shell.css') }}" />
 
     <style>
         #user-mode,
@@ -23,6 +24,9 @@
 
 <body>
 
+    {% include "components/sidebar.html" %}
+
+    <div id="content-area">
     <div class="phase2-stage">
 
         <div class="phase2-header">
@@ -30,6 +34,22 @@
             <div class="logo-top">BRight <span>AI</span></div>
             <p id="mode-title">Loading Mode...</p>
         </div>
+
+        <!-- ═════════════════════════════════════
+             NEXT STEP — choose NLP or ML
+             (always visible, not just "at the end")
+        ══════════════════════════════════════ -->
+        <div class="next-step-card">
+            <div class="next-step-text">
+                <i class="fas fa-arrow-right-long"></i>
+                <span>Done exploring? Continue your pipeline with:</span>
+            </div>
+            <div class="next-step-actions">
+                <a href="/nlp" class="next-step-btn nlp"><i class="fas fa-comment-dots"></i> NLP</a>
+                <a href="/ml" class="next-step-btn ml"><i class="fas fa-brain"></i> ML</a>
+            </div>
+        </div>
+
 
         <!-- USER MODE: Automatic Dashboard -->
         <div id="user-mode">
@@ -398,6 +418,7 @@
         </div><!-- /developer-mode -->
 
     </div><!-- /phase2-stage -->
+    </div><!-- /content-area -->
 
     <script>
         async function initPhase2() {
@@ -449,5 +470,6 @@
 
 </body>
     <script src="{{ url_for('static', filename='scripts/chatbot.js') }}"></script>
+    <script src="{{ url_for('static', filename='scripts/sidebar_shell.js') }}"></script>
 
 </html>

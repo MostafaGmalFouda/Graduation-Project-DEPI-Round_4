@@ -15,3 +15,8 @@ requests
 python-dotenv
 scikit-learn
 pypdf
+matplotlib
+joblib
+plotly
+seaborn
+ydata_profiling

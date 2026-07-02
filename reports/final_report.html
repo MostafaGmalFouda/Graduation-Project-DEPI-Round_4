@@ -90,12 +90,12 @@
     <div class="overview-box">
         <div class="box">
             <b>Rows</b><br>
-            400
+            50000
         </div>
 
         <div class="box">
             <b>Columns</b><br>
-            5
+            2
         </div>
 
         <div class="box">
@@ -105,7 +105,7 @@
 
         <div class="box">
             <b>Duplicates</b><br>
-            0
+            418
         </div>
     </div>
 </div>
@@ -117,68 +117,30 @@
   <thead>
     <tr style="text-align: right;">
       <th></th>
-      <th>User ID</th>
-      <th>Age</th>
-      <th>EstimatedSalary</th>
-      <th>Purchased</th>
+      <th>review</th>
+      <th>sentiment</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <th>count</th>
-      <td>4.000000e+02</td>
-      <td>400.000000</td>
-      <td>400.000000</td>
-      <td>400.000000</td>
+      <td>50000</td>
+      <td>50000</td>
     </tr>
     <tr>
-      <th>mean</th>
-      <td>1.569154e+07</td>
-      <td>37.655000</td>
-      <td>69742.500000</td>
-      <td>0.357500</td>
+      <th>unique</th>
+      <td>49582</td>
+      <td>2</td>
     </tr>
     <tr>
-      <th>std</th>
-      <td>7.165832e+04</td>
-      <td>10.482877</td>
-      <td>34096.960282</td>
-      <td>0.479864</td>
+      <th>top</th>
+      <td>Loved today's show!!! It was a variety and not solely cooking (which would have been great too). Very stimulating and captivating, always keeping the viewer peeking around the corner to see what was coming up next. She is as down to earth and as personable as you get, like one of us which made the show all the more enjoyable. Special guests, who are friends as well made for a nice surprise too. Loved the 'first' theme and that the audience was invited to play along too. I must admit I was shocked to see her come in under her time limits on a few things, but she did it and by golly I'll be writing those recipes down. Saving time in the kitchen means more time with family. Those who haven't tuned in yet, find out what channel and the time, I assure you that you won't be disappointed.</td>
+      <td>positive</td>
     </tr>
     <tr>
-      <th>min</th>
-      <td>1.556669e+07</td>
-      <td>18.000000</td>
-      <td>15000.000000</td>
-      <td>0.000000</td>
-    </tr>
-    <tr>
-      <th>25%</th>
-      <td>1.562676e+07</td>
-      <td>29.750000</td>
-      <td>43000.000000</td>
-      <td>0.000000</td>
-    </tr>
-    <tr>
-      <th>50%</th>
-      <td>1.569434e+07</td>
-      <td>37.000000</td>
-      <td>70000.000000</td>
-      <td>0.000000</td>
-    </tr>
-    <tr>
-      <th>75%</th>
-      <td>1.575036e+07</td>
-      <td>46.000000</td>
-      <td>88000.000000</td>
-      <td>1.000000</td>
-    </tr>
-    <tr>
-      <th>max</th>
-      <td>1.581524e+07</td>
-      <td>60.000000</td>
-      <td>150000.000000</td>
-      <td>1.000000</td>
+      <th>freq</th>
+      <td>5</td>
+      <td>25000</td>
     </tr>
   </tbody>
 </table>
@@ -189,7 +151,7 @@
     <h2>❗ Missing Values Analysis</h2>
 
     <div class="warning">
-        🔍 Column with most missing: <b>User ID</b> (0.0%)
+        🔍 Column with most missing: <b>review</b> (0.0%)
     </div>
 
     <table border="1" class="dataframe">
@@ -202,27 +164,12 @@
   </thead>
   <tbody>
     <tr>
-      <th>User ID</th>
+      <th>review</th>
       <td>0</td>
       <td>0.0</td>
     </tr>
     <tr>
-      <th>Gender</th>
-      <td>0</td>
-      <td>0.0</td>
-    </tr>
-    <tr>
-      <th>Age</th>
-      <td>0</td>
-      <td>0.0</td>
-    </tr>
-    <tr>
-      <th>EstimatedSalary</th>
-      <td>0</td>
-      <td>0.0</td>
-    </tr>
-    <tr>
-      <th>Purchased</th>
+      <th>sentiment</th>
       <td>0</td>
       <td>0.0</td>
     </tr>
@@ -237,41 +184,9 @@
   <thead>
     <tr style="text-align: right;">
       <th></th>
-      <th>User ID</th>
-      <th>Age</th>
-      <th>EstimatedSalary</th>
-      <th>Purchased</th>
     </tr>
   </thead>
   <tbody>
-    <tr>
-      <th>User ID</th>
-      <td>1.000000</td>
-      <td>-0.000721</td>
-      <td>0.071097</td>
-      <td>0.007120</td>
-    </tr>
-    <tr>
-      <th>Age</th>
-      <td>-0.000721</td>
-      <td>1.000000</td>
-      <td>0.155238</td>
-      <td>0.622454</td>
-    </tr>
-    <tr>
-      <th>EstimatedSalary</th>
-      <td>0.071097</td>
-      <td>0.155238</td>
-      <td>1.000000</td>
-      <td>0.362083</td>
-    </tr>
-    <tr>
-      <th>Purchased</th>
-      <td>0.007120</td>
-      <td>0.622454</td>
-      <td>0.362083</td>
-      <td>1.000000</td>
-    </tr>
   </tbody>
 </table>
 </div>
@@ -280,6 +195,8 @@
 <div class="card">
     <h2>💡 Key Insights</h2>
 
+    
+        <div class="insight">✔ Dataset contains 418 duplicate rows</div>
     
 </div>
 

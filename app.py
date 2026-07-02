@@ -27,6 +27,16 @@ from Phase_6.rag.document_builder import build_documents
 from Phase_6.rag.chatbot import Chatbot
 from Phase_6.rag.vector_store import VectorStore
 
+# Import Phase_3 NLP
+from Phase_3_NLP.NLPAnalyzer import NLPAnalyzer
+from Phase_3_NLP.NLPVisualizer import NLPVisualizer
+
+# Import Phase_5 ML
+from Phase_5_ML.MLPipeline import MLPipeline
+from Phase_5_ML.ModelTrainer import ModelTrainer
+from Phase_5_ML.ModelFactory import ModelFactory
+from Phase_5_ML.Predictor import Predictor
+
 chatbot = Chatbot()
 
 # ── App Setup ─────────────────────────────────────────────────────────────────
@@ -278,7 +288,7 @@ def describe_dataset_highlights(df: pd.DataFrame) -> str:
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return render_template('index.html', active_page='eda', hide_sidebar_initially=True)
 
 
 @app.route('/process', methods=['POST'])
@@ -652,6 +662,31 @@ def set_mode():
 PLOTS_FOLDER = os.path.join(BASE_DIR, 'Phase_2', 'plots')
 os.makedirs(PLOTS_FOLDER, exist_ok=True)
 
+NLP_PLOTS_FOLDER = os.path.join(BASE_DIR, 'Phase_3_NLP', 'plots')
+os.makedirs(NLP_PLOTS_FOLDER, exist_ok=True)
+
+ML_PLOTS_FOLDER = os.path.join(BASE_DIR, 'Phase_5_ML', 'plots')
+os.makedirs(ML_PLOTS_FOLDER, exist_ok=True)
+
+ML_MODELS_FOLDER = os.path.join(BASE_DIR, 'Phase_5_ML', 'saved_models')
+os.makedirs(ML_MODELS_FOLDER, exist_ok=True)
+
+
+def detect_text_columns(df: pd.DataFrame) -> list:
+    """Heuristic: object columns whose cells look like free text (reviews,
+    comments) rather than short categorical labels."""
+    text_cols = []
+    for col in df.columns:
+        if df[col].dtype == object:
+            sample = df[col].dropna().astype(str).head(200)
+            if sample.empty:
+                continue
+            avg_words = sample.str.split().str.len().mean()
+            nunique_ratio = df[col].nunique(dropna=True) / max(len(df), 1)
+            if avg_words and avg_words >= 4 and nunique_ratio > 0.05:
+                text_cols.append(col)
+    return text_cols
+
 
 @app.route("/phase2")
 def phase2():
@@ -660,7 +695,8 @@ def phase2():
 
     return render_template(
         "phase2_ui.html",
-        mode=mode
+        mode=mode,
+        active_page='visualization'
     )
 
 
@@ -983,6 +1019,271 @@ def chat():
     return jsonify({
         "answer": answer
     })
+
+# ════════════════════════════════════════════════════════════
+# PHASE 3 — NLP Routes
+# ════════════════════════════════════════════════════════════
+
+@app.route('/nlp')
+def nlp_page():
+    mode = session.get("mode", "user")
+    return render_template("nlp_ui.html", mode=mode, active_page='nlp')
+
+
+@app.route('/nlp/status', methods=['GET'])
+def nlp_status():
+    """Returns candidate text columns from the RAW dataset (free text is
+    usually stripped/encoded away by the Phase 1 clean pipeline)."""
+    df = get_raw_df()
+    if df is None:
+        df = get_clean_df()
+    if df is None:
+        return jsonify({"status": "no_data"})
+
+    text_cols = detect_text_columns(df)
+    all_object_cols = [c for c in df.columns if df[c].dtype == object]
+
+    return jsonify({
+        "status": "ready",
+        "rows": df.shape[0],
+        "text_columns": text_cols,
+        "all_text_like_columns": all_object_cols,
+        "columns": list(df.columns),
+    })
+
+
+@app.route('/nlp/analyze', methods=['POST'])
+def nlp_analyze():
+    data = request.form
+    text_column = data.get("text_column")
+    if not text_column:
+        return jsonify({"status": "error", "message": "text_column is required."}), 400
+
+    df = get_raw_df()
+    if df is None:
+        df = get_clean_df()
+    if df is None:
+        return jsonify({"status": "error", "message": "No data available. Run Phase 1 first."}), 400
+    if text_column not in df.columns:
+        return jsonify({"status": "error", "message": f"Column '{text_column}' not found."}), 400
+
+    auto = data.get("auto", "true") == "true"
+    label_column = data.get("label_column") or None
+    method = data.get("method", "tfidf")
+    ngram_max = int(data.get("ngram_max", 1))
+    classifier = data.get("classifier", "logistic_regression")
+    top_n = int(data.get("top_n", 20))
+
+    try:
+        analyzer = NLPAnalyzer(df, text_column)
+        result = analyzer.analyze(
+            auto=auto,
+            label_column=label_column,
+            method=method,
+            ngram_range=(1, max(1, ngram_max)),
+            classifier=classifier,
+            top_n=top_n,
+        )
+
+        viz = NLPVisualizer(plots_dir=NLP_PLOTS_FOLDER)
+        plots = {
+            "word_frequency": os.path.basename(viz.plot_word_frequency(result["word_frequency"])),
+            "keywords": os.path.basename(viz.plot_keywords(result["keywords"])),
+        }
+        sentiment = result["sentiment"]
+        if sentiment.get("method") == "lexicon":
+            plots["sentiment_distribution"] = os.path.basename(
+                viz.plot_sentiment_distribution(sentiment["distribution"])
+            )
+            summary_line = (
+                f"Lexicon-based sentiment on '{text_column}': "
+                f"{sentiment['distribution']} ({sentiment['dominant_sentiment']} dominant)."
+            )
+        else:
+            plots["confusion_matrix"] = os.path.basename(
+                viz.plot_confusion_matrix(sentiment["confusion_matrix"], sentiment["labels"])
+            )
+            summary_line = (
+                f"Trained {sentiment['classifier']} classifier on '{text_column}' vs '{label_column}': "
+                f"accuracy={sentiment['accuracy']}, f1={sentiment['f1_score']}."
+            )
+
+        stats = result["statistics"]
+        keyword_line = ", ".join(k["term"] for k in result["keywords"][:10])
+        description = (
+            f"{stats['documents']} documents, avg {stats['avg_word_count']} words each, "
+            f"vocabulary size {stats['vocabulary_size']}. Top keywords: {keyword_line}. {summary_line}"
+        )
+
+        ctx = get_chat_context()
+        ctx.log_nlp(text_column, description)
+        save_chat_context(ctx)
+
+        result["plots"] = plots
+        result["status"] = "success"
+        return jsonify(result)
+
+    except Exception as e:
+        print("NLP Error:", e)
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/nlp/view/<filename>')
+def nlp_view(filename):
+    return send_from_directory(NLP_PLOTS_FOLDER, filename)
+
+
+@app.route('/nlp/download/<filename>')
+def nlp_download(filename):
+    return send_file(os.path.join(NLP_PLOTS_FOLDER, filename), as_attachment=True)
+
+
+# ════════════════════════════════════════════════════════════
+# PHASE 5 — ML Routes
+# ════════════════════════════════════════════════════════════
+
+@app.route('/ml')
+def ml_page():
+    mode = session.get("mode", "user")
+    return render_template("ml_ui.html", mode=mode, active_page='ml')
+
+
+@app.route('/ml/status', methods=['GET'])
+def ml_status():
+    df = get_clean_df()
+    if df is None:
+        return jsonify({"status": "no_data"})
+
+    trainer = ModelTrainer(df)
+    guessed_target = trainer.guess_target_column()
+    task_type = trainer.detect_task_type(guessed_target)
+
+    return jsonify({
+        "status": "ready",
+        "rows": df.shape[0],
+        "cols": df.shape[1],
+        "columns": list(df.columns),
+        "guessed_target": guessed_target,
+        "guessed_task_type": task_type,
+        "available_models": {
+            "classification": ModelFactory.available_models("classification"),
+            "regression": ModelFactory.available_models("regression"),
+        },
+    })
+
+
+@app.route('/ml/train', methods=['POST'])
+def ml_train():
+    df = get_clean_df()
+    if df is None:
+        return jsonify({"status": "error", "message": "No preprocessed data available. Run Phase 1 first."}), 400
+
+    data = request.form
+    mode = data.get("mode", "user")
+
+    try:
+        pipeline = MLPipeline(df, plots_dir=ML_PLOTS_FOLDER)
+
+        if mode == "user":
+            target_column = data.get("target_column") or None
+            result = pipeline.run_auto(target_column=target_column)
+        else:
+            target_column = data.get("target_column")
+            model_name = data.get("model_name", "random_forest")
+            task_type = data.get("task_type") or None
+            feature_columns = request.form.getlist("feature_columns") or None
+            test_size = float(data.get("test_size", 0.2))
+            scale = data.get("scale", "false") == "true"
+
+            hyperparams = {}
+            n_estimators = data.get("n_estimators")
+            if n_estimators:
+                hyperparams["n_estimators"] = int(n_estimators)
+            max_depth = data.get("max_depth")
+            if max_depth:
+                hyperparams["max_depth"] = int(max_depth)
+            n_neighbors = data.get("n_neighbors")
+            if n_neighbors:
+                hyperparams["n_neighbors"] = int(n_neighbors)
+            c_param = data.get("C")
+            if c_param:
+                hyperparams["C"] = float(c_param)
+
+            if not target_column:
+                return jsonify({"status": "error", "message": "target_column is required in Developer mode."}), 400
+
+            result = pipeline.run_manual(
+                target_column=target_column,
+                model_name=model_name,
+                task_type=task_type,
+                feature_columns=feature_columns,
+                test_size=test_size,
+                scale=scale,
+                hyperparams=hyperparams,
+            )
+
+        description = (
+            f"Trained {result['model_name']} ({result['task_type']}) on target "
+            f"'{result['target_column']}' using {len(result['feature_columns'])} features. "
+            f"Metrics: {result['metrics']}."
+        )
+        ctx = get_chat_context()
+        ctx.log_model(
+            model_id=result["model_id"],
+            model_name=result["model_name"],
+            task_type=result["task_type"],
+            target_column=result["target_column"],
+            metrics=result["metrics"],
+            mode=result["mode"],
+        )
+        ctx.log_prediction({"type": "training_run", "summary": description})
+        save_chat_context(ctx)
+
+        session[f"ml_model_path_{result['model_id']}"] = os.path.join(ML_MODELS_FOLDER, f"model_{result['model_id']}.pkl")
+
+        result["status"] = "success"
+        return jsonify(result)
+
+    except Exception as e:
+        print("ML Error:", e)
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/ml/predict', methods=['POST'])
+def ml_predict():
+    data = request.get_json(force=True)
+    model_id = data.get("model_id")
+    row = data.get("row", {})
+
+    model_path = session.get(f"ml_model_path_{model_id}")
+    if not model_path or not os.path.exists(model_path):
+        model_path = os.path.join(ML_MODELS_FOLDER, f"model_{model_id}.pkl")
+        if not os.path.exists(model_path):
+            return jsonify({"status": "error", "message": "Model not found. Train a model first."}), 404
+
+    try:
+        predictor = Predictor.from_file(model_path)
+        prediction = predictor.predict_row(row)
+
+        ctx = get_chat_context()
+        ctx.log_prediction({"type": "single_prediction", **prediction, "input": row})
+        save_chat_context(ctx)
+
+        prediction["status"] = "success"
+        return jsonify(prediction)
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/ml/view/<filename>')
+def ml_view(filename):
+    return send_from_directory(ML_PLOTS_FOLDER, filename)
+
+
+@app.route('/ml/download/<filename>')
+def ml_download(filename):
+    return send_file(os.path.join(ML_PLOTS_FOLDER, filename), as_attachment=True)
+
 
 if __name__ == '__main__':
     app.run(debug=True,use_reloader=False)

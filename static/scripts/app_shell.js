@@ -218,74 +218,11 @@ function getDevPipelineParams() {
 
 
 // ═══════════════════════════════════════════════════════════════════════
-// SIDEBAR NAVIGATION
+// SIDEBAR — collapse & mobile toggle
+// (Navigation itself is now plain <a href> links in components/sidebar.html,
+//  active state is set server-side via the `active_page` template var.)
 // ═══════════════════════════════════════════════════════════════════════
 
-const MODULE_INFO = {
-    nlp: {
-        icon: 'fa-comment-dots',
-        title: 'NLP Module',
-        text: 'Natural Language Processing tools — text classification, sentiment analysis, and entity extraction — are currently in development and will land in a future release of BRight AI.',
-    },
-    cv: {
-        icon: 'fa-eye',
-        title: 'Computer Vision Module',
-        text: 'Image classification, object detection, and visual analytics tools are planned for an upcoming release of BRight AI.',
-    },
-    ml: {
-        icon: 'fa-brain',
-        title: 'AutoML Module',
-        text: 'Automated model selection, training, and tuning across multiple algorithms — coming soon to BRight AI.',
-    },
-};
-
-function showSection(target) {
-    const modeSelect   = document.getElementById('mode-select-screen');
-    const mainApp      = document.getElementById('main-app');
-    const comingSoon   = document.getElementById('coming-soon-view');
-
-    document.querySelectorAll('.sidebar-item').forEach(item => item.classList.remove('active'));
-
-    if (target === 'eda') {
-        document.getElementById('nav-eda').classList.add('active');
-        comingSoon.style.display = 'none';
-        // Show whichever EDA screen was last active (hero or workspace)
-        if (mainApp.style.display === 'block') {
-            mainApp.style.display = 'block';
-            mainApp.style.opacity = '1';
-        } else {
-            modeSelect.style.display = 'block';
-            modeSelect.style.opacity = '1';
-        }
-        return;
-    }
-
-    // Coming-soon modules (nlp / cv / ml)
-    modeSelect.style.display = 'none';
-    mainApp.style.display = 'none';
-    comingSoon.style.display = 'block';
-
-    const info = MODULE_INFO[target];
-    if (info) {
-        document.getElementById('coming-soon-icon-i').className = 'fas ' + info.icon;
-        document.getElementById('coming-soon-title').innerText = info.title;
-        document.getElementById('coming-soon-text').innerText = info.text;
-    }
-
-    const navItem = document.getElementById('nav-' + target);
-    if (navItem) navItem.classList.add('active');
-
-    // Close mobile sidebar after navigating
-    document.getElementById('sidebar').classList.remove('mobile-open');
-}
-
-document.querySelectorAll('.sidebar-item').forEach(item => {
-    item.addEventListener('click', () => {
-        const target = item.dataset.target;
-        if (!target) return;
-        showSection(target);
-    });
-});
 
 // ── Sidebar collapse (desktop) ──────────────────────────────────────────
 const collapseBtn = document.getElementById('sidebar-collapse-btn');

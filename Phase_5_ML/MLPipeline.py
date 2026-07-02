@@ -1,0 +1,151 @@
+import os
+import uuid
+import pandas as pd
+
+from Phase_5_ML.ModelTrainer import ModelTrainer
+from Phase_5_ML.ModelEvaluator import ModelEvaluator
+from Phase_5_ML.ModelFactory import ModelFactory
+from Phase_5_ML.ModelVisualizer import ModelVisualizer
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODELS_DIR = os.path.join(BASE_DIR, "saved_models")
+os.makedirs(MODELS_DIR, exist_ok=True)
+
+
+class MLPipeline:
+    """
+    One entry point for both ML flows:
+
+      run_auto()   — User Mode: guesses/accepts a target, auto-detects the
+                     task type, quickly compares a small candidate pool of
+                     fast models via cross-validation, and trains the best
+                     one on the full train split. No knobs to turn.
+
+      run_manual() — Developer Mode: explicit target, model, hyperparams,
+                     vectorizer/scaling choices, test size, etc.
+
+    Both return the same result shape so the frontend/report code and the
+    RAG model_context stay identical regardless of which mode produced it.
+    """
+
+    def __init__(self, df: pd.DataFrame, plots_dir: str = None):
+        self.df = df
+        self.trainer = ModelTrainer(df)
+        self.visualizer = ModelVisualizer(plots_dir=plots_dir)
+
+    def _finish(self, task_type, model_name, model, scaler, X_test, y_test, feature_columns, target_column, extra=None):
+        preds = model.predict(X_test)
+        labels = sorted(pd.Series(list(y_test) + list(preds)).astype(str).unique()) if task_type == "classification" else None
+        metrics = ModelEvaluator.evaluate(
+            task_type,
+            [str(v) for v in y_test] if task_type == "classification" else y_test,
+            [str(v) for v in preds] if task_type == "classification" else preds,
+            labels=labels,
+        )
+        importance = ModelEvaluator.feature_importance(model, feature_columns)
+
+        plots = {}
+        if task_type == "classification":
+            plots["confusion_matrix"] = os.path.basename(
+                self.visualizer.plot_confusion_matrix(metrics["confusion_matrix"], metrics["labels"])
+            )
+        else:
+            plots["actual_vs_predicted"] = os.path.basename(
+                self.visualizer.plot_actual_vs_predicted(list(y_test), list(preds))
+            )
+        if importance:
+            plots["feature_importance"] = os.path.basename(
+                self.visualizer.plot_feature_importance(importance)
+            )
+
+        model_id = uuid.uuid4().hex[:10]
+        model_path = os.path.join(MODELS_DIR, f"model_{model_id}.pkl")
+        ModelTrainer.save_model(
+            model, scaler, model_path, feature_columns, task_type, model_name, target_column,
+            labels=metrics.get("labels"),
+        )
+
+        result = {
+            "model_id": model_id,
+            "task_type": task_type,
+            "model_name": model_name,
+            "target_column": target_column,
+            "feature_columns": feature_columns,
+            "metrics": metrics,
+            "feature_importance": importance[:15],
+            "plots": plots,
+            "train_size": len(self.df) - len(X_test),
+            "test_size": len(X_test),
+        }
+        if extra:
+            result.update(extra)
+        return result
+
+    # ── User Mode ──────────────────────────────────────────────────────
+    def run_auto(self, target_column: str = None) -> dict:
+        target_column = target_column or self.trainer.guess_target_column()
+        task_type = self.trainer.detect_task_type(target_column)
+
+        X, y, feature_columns = self.trainer.prepare_xy(target_column)
+        if X.shape[1] == 0:
+            raise ValueError("No usable numeric feature columns remain after excluding the target.")
+
+        X_train, X_test, y_train, y_test = self.trainer.split(X, y, task_type=task_type)
+
+        candidates = ModelFactory.AUTO_CANDIDATES[task_type]
+        scores = []
+        for name in candidates:
+            mean_score, _ = self.trainer.cross_validate(task_type, name, X_train, y_train, cv=3)
+            scores.append({"model": name, "score": mean_score if mean_score is not None else -1e9})
+
+        best = max(scores, key=lambda r: r["score"])
+        comparison_plot = os.path.basename(
+            self.visualizer.plot_model_comparison(
+                [s for s in scores if s["score"] != -1e9] or scores
+            )
+        )
+
+        model, scaler = self.trainer.train_one(task_type, best["model"], X_train, y_train)
+
+        result = self._finish(
+            task_type, best["model"], model, scaler, X_test, y_test, feature_columns, target_column,
+            extra={
+                "mode": "user",
+                "target_guessed": True,
+                "candidates_compared": scores,
+            },
+        )
+        result["plots"]["model_comparison"] = comparison_plot
+        return result
+
+    # ── Developer Mode ────────────────────────────────────────────────
+    def run_manual(
+        self,
+        target_column: str,
+        model_name: str,
+        task_type: str = None,
+        feature_columns: list = None,
+        test_size: float = 0.2,
+        scale: bool = False,
+        hyperparams: dict = None,
+    ) -> dict:
+        task_type = task_type or self.trainer.detect_task_type(target_column)
+        X, y, used_columns = self.trainer.prepare_xy(target_column, feature_columns=feature_columns)
+        if X.shape[1] == 0:
+            raise ValueError("No usable numeric feature columns remain after excluding the target.")
+
+        X_train, X_test, y_train, y_test = self.trainer.split(X, y, test_size=test_size, task_type=task_type)
+
+        model, scaler = self.trainer.train_one(
+            task_type, model_name, X_train, y_train, scale=scale, **(hyperparams or {})
+        )
+
+        if scaler is not None:
+            X_test_for_eval = scaler.transform(X_test)
+        else:
+            X_test_for_eval = X_test
+
+        return self._finish(
+            task_type, model_name, model, scaler, X_test_for_eval, y_test, used_columns, target_column,
+            extra={"mode": "developer", "target_guessed": False, "hyperparams": hyperparams or {}},
+        )

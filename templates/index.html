@@ -127,18 +127,6 @@
             </div>
         </div>
 
-        <!-- ==================== COMING SOON VIEW ==================== -->
-        <div id="coming-soon-view">
-            <div class="coming-soon-icon"><i id="coming-soon-icon-i" class="fas fa-comment-dots"></i></div>
-            <h2 id="coming-soon-title">NLP Module</h2>
-            <p id="coming-soon-text">
-                Natural Language Processing tools — text classification, sentiment analysis,
-                and entity extraction — are currently in development and will land in a future
-                release of BRight AI.
-            </p>
-            <div class="coming-soon-pill"><i class="fas fa-hourglass-half"></i> Coming Soon</div>
-        </div>
-
         <!-- ==================== MAIN APPLICATION ==================== -->
         <div id="main-app" class="app-stage" style="display: none; opacity: 0;" data-aos="fade-up"
             data-aos-duration="1000">
@@ -417,42 +405,7 @@
         </div>
 
         <!-- ==================== SIDEBAR NAVIGATION ==================== -->
-        <aside id="sidebar" class="initially-hidden">
-            <div class="sidebar-brand">
-                <div class="sidebar-brand-icon">AI</div>
-                <div class="sidebar-brand-text">BRight <span>AI</span></div>
-            </div>
-
-            <nav class="sidebar-nav">
-                <div class="sidebar-section-label">Modules</div>
-                <div class="sidebar-item active" id="nav-eda" data-target="eda">
-                    <i class="fas fa-chart-line"></i>
-                    <span class="item-label">EDA Platform</span>
-                </div>
-                <div class="sidebar-item disabled" id="nav-nlp" data-target="nlp">
-                    <i class="fas fa-comment-dots"></i>
-                    <span class="item-label">NLP</span>
-                    <span class="soon-badge">Soon</span>
-                </div>
-                <div class="sidebar-item disabled" id="nav-cv" data-target="cv">
-                    <i class="fas fa-eye"></i>
-                    <span class="item-label">Computer Vision</span>
-                    <span class="soon-badge">Soon</span>
-                </div>
-                <div class="sidebar-item disabled" id="nav-ml" data-target="ml">
-                    <i class="fas fa-brain"></i>
-                    <span class="item-label">AutoML</span>
-                    <span class="soon-badge">Soon</span>
-                </div>
-            </nav>
-
-            <div class="sidebar-footer">
-                <div class="sidebar-collapse-btn" id="sidebar-collapse-btn">
-                    <i class="fas fa-angles-left"></i>
-                    <span class="item-label">Collapse</span>
-                </div>
-            </div>
-        </aside>
+        {% include "components/sidebar.html" %}
 
     </div>
 

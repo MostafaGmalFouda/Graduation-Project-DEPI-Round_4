@@ -99,6 +99,18 @@ def build_documents(chat_context):
             )
         )
 
+    # NLP analyses (optional)
+    for analysis in chat_context.nlp_context.get_context():
+        documents.append(
+            Document(
+                page_content=(
+                    f"NLP analysis of column '{analysis['text_column']}':\n"
+                    f"{analysis['description']}"
+                ),
+                metadata={"source": "nlp", "text_column": analysis["text_column"]},
+            )
+        )
+
     # Model info (optional)
     model_data = chat_context.model_context.get_context()
     if model_data:

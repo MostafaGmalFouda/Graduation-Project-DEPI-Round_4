@@ -23,6 +23,7 @@ from Phase_6.context.visualization_context import VisualizationContext
 from Phase_6.context.model_context import ModelContext
 from Phase_6.context.prediction_context import PredictionContext
 from Phase_6.context.conversation_context import ConversationContext
+from Phase_6.context.nlp_context import NLPContext
 
 
 class ChatContext:
@@ -35,6 +36,7 @@ class ChatContext:
         self.model_context = ModelContext()
         self.prediction_context = PredictionContext()
         self.conversation_context = ConversationContext()
+        self.nlp_context = NLPContext()
 
     # ── mutators ──────────────────────────────────────────────────
     def update_raw_dataset(self, df):
@@ -57,6 +59,9 @@ class ChatContext:
     def log_prediction(self, prediction):
         self.prediction_context.add_prediction(prediction)
 
+    def log_nlp(self, text_column, description):
+        self.nlp_context.add_analysis(text_column, description)
+
     def add_conversation_turn(self, question, answer):
         self.conversation_context.add_turn(question, answer)
 
@@ -69,6 +74,7 @@ class ChatContext:
             "model": self.model_context.get_context(),
             "prediction": self.prediction_context.get_context(),
             "conversation": self.conversation_context.get_context(),
+            "nlp": self.nlp_context.get_context(),
         }
 
     @classmethod
@@ -82,6 +88,7 @@ class ChatContext:
         ctx.model_context.data = data.get("model", {}) or {}
         ctx.prediction_context.history = data.get("prediction", []) or []
         ctx.conversation_context.turns = data.get("conversation", []) or []
+        ctx.nlp_context.analyses = data.get("nlp", []) or []
         return ctx
 
 

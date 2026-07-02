@@ -1,0 +1,45 @@
+<!--
+    Shared BRight AI sidebar.
+    Include with the Jinja include tag pointing to components/sidebar.html
+    Expects an `active_page` variable in the parent template's render_template()
+    call: one of 'eda' | 'visualization' | 'nlp' | 'ml'.
+    Real page navigation (not SPA) — each item is a normal link, so the
+    sidebar stays available and in sync no matter which phase page you're on.
+-->
+<aside id="sidebar" class="{{ 'initially-hidden' if hide_sidebar_initially }}">
+    <div class="sidebar-brand">
+        <div class="sidebar-brand-icon">AI</div>
+        <div class="sidebar-brand-text">BRight <span>AI</span></div>
+    </div>
+
+    <nav class="sidebar-nav">
+        <div class="sidebar-section-label">Modules</div>
+
+        <a class="sidebar-item {{ 'active' if active_page == 'eda' }}" id="nav-eda" href="/">
+            <i class="fas fa-chart-line"></i>
+            <span class="item-label">EDA</span>
+        </a>
+
+        <a class="sidebar-item {{ 'active' if active_page == 'visualization' }}" id="nav-visualization" href="/phase2">
+            <i class="fas fa-chart-pie"></i>
+            <span class="item-label">Visualization</span>
+        </a>
+
+        <a class="sidebar-item {{ 'active' if active_page == 'nlp' }}" id="nav-nlp" href="/nlp">
+            <i class="fas fa-comment-dots"></i>
+            <span class="item-label">NLP</span>
+        </a>
+
+        <a class="sidebar-item {{ 'active' if active_page == 'ml' }}" id="nav-ml" href="/ml">
+            <i class="fas fa-brain"></i>
+            <span class="item-label">ML</span>
+        </a>
+    </nav>
+
+    <div class="sidebar-footer">
+        <div class="sidebar-collapse-btn" id="sidebar-collapse-btn">
+            <i class="fas fa-angles-left"></i>
+            <span class="item-label">Collapse</span>
+        </div>
+    </div>
+</aside>
