@@ -40,6 +40,9 @@
         }
     </style>
 </head>
+{% include "components/chatbot.html" %}
+
+<link rel="stylesheet" href="{{ url_for('static',filename='css/chatbot.css') }}">
 
 <body style="overflow: hidden;">
 
@@ -481,6 +484,10 @@
         async function clearSelectedFile() {
             await fetch('/clear-data', { method: 'POST' });
 
+            if (typeof clearChat === "function") {
+                clearChat();
+            }
+
             fileInput.value = "";
             fileStatus.innerText = "Select Data File (CSV/Excel)";
             fileStatus.style.color = "";
@@ -552,6 +559,9 @@
                 const result = await response.json();
 
                 if (result.status === "success") {
+                    if (typeof clearChat === "function") {
+                        clearChat();
+                    }
                     statusLabel.innerText = "ENGINE COMPLETE";
                     statusLabel.style.color = "#14ffd0";
                     resultsArea.style.display = 'block';
@@ -734,7 +744,7 @@
             }
         });
     </script>
-
+    <script src="{{ url_for('static', filename='scripts/chatbot.js') }}"></script>
 </body>
 
 </html>

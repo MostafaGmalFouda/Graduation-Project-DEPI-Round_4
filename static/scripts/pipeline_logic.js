@@ -90,6 +90,13 @@ async function startPipelineStream(file, devParams = {}) {
 
                 if (json.done) {
                     updateStage("Report Generated", "Final Intelligence Deployed", 100);
+                    // NOTE: we intentionally do NOT clear the chat here.
+                    // Running the pipeline processes the SAME uploaded
+                    // dataset (it's not a new upload) — the chat should stay
+                    // exactly as it was, and now the assistant can ALSO
+                    // answer questions about the clean data alongside the
+                    // raw data it already knew about. The chat is only
+                    // cleared on a real page refresh or a brand new upload.
                     if (typeof handleFinalReport === "function") {
                         handleFinalReport(json);
                     }
