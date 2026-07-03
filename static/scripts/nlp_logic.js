@@ -38,11 +38,6 @@ async function initNLP() {
 
         if (APP_MODE === "developer") {
             document.getElementById("nlp-developer-mode").style.display = "block";
-            const labelSelect = document.getElementById("nlp-dev-label");
-            labelSelect.innerHTML =
-                `<option value="">— None (rule-based sentiment) —</option>` +
-                data.columns.filter(c => c !== select.value)
-                    .map(c => `<option value="${c}">${c}</option>`).join("");
         } else {
             document.getElementById("nlp-user-mode").style.display = "block";
         }
@@ -63,6 +58,7 @@ async function runNLP(auto) {
 
     const loading = document.getElementById("nlp-loading");
     const results = document.getElementById("nlp-results");
+    loading.style.display = "flex";
     loading.classList.add("active");
     results.style.display = "none";
 
@@ -74,14 +70,14 @@ async function runNLP(auto) {
         formData.append("method", document.getElementById("nlp-dev-method").value);
         formData.append("ngram_max", document.getElementById("nlp-dev-ngram").value);
         formData.append("top_n", document.getElementById("nlp-dev-topn").value);
-        formData.append("classifier", document.getElementById("nlp-dev-classifier").value);
-        const labelCol = document.getElementById("nlp-dev-label").value;
-        if (labelCol) formData.append("label_column", labelCol);
+        const includeSentiment = document.getElementById("nlp-dev-sentiment").checked;
+        formData.append("include_sentiment", includeSentiment ? "true" : "false");
     }
 
     try {
         const res = await fetch("/nlp/analyze", { method: "POST", body: formData });
         const data = await res.json();
+        loading.style.display = "none";
         loading.classList.remove("active");
 
         if (data.status !== "success") {
@@ -93,6 +89,7 @@ async function runNLP(auto) {
         results.style.display = "block";
         showToast("Analysis complete.", "success");
     } catch (e) {
+        loading.style.display = "none";
         loading.classList.remove("active");
         showToast("Request failed: " + e.message, "error");
     }
@@ -114,29 +111,20 @@ function renderNLPResults(data) {
         plotsGrid.innerHTML += plotCard(key, `/nlp/view/${filename}`, `/nlp/download/${filename}`);
     }
 
-    const sentiment = data.sentiment;
+    const sentiment = data.sentiment; // undefined when include_sentiment was false
     const summaryPanel = document.getElementById("nlp-sentiment-summary");
     const body = document.getElementById("nlp-sentiment-body");
     summaryPanel.style.display = "block";
+    body.innerHTML = "";
 
-    if (sentiment.method === "lexicon") {
+    if (sentiment) {
         const pills = Object.entries(sentiment.distribution_pct)
             .map(([label, pct]) => `<span class="sentiment-pill ${label}">${label}: ${pct}%</span>`).join("");
         body.innerHTML = `
             <p style="color:var(--txt-dim); font-size:13px; margin-bottom:6px;">
-                Rule-based lexicon sentiment (no label column used) — dominant: <b style="color:var(--neon-c);">${sentiment.dominant_sentiment}</b>
+                Rule-based lexicon sentiment — dominant: <b style="color:var(--neon-c);">${sentiment.dominant_sentiment}</b>
             </p>
             <div class="sentiment-pill-row">${pills}</div>
-        `;
-    } else {
-        body.innerHTML = `
-            <div class="metric-row">
-                <div class="metric-card"><div class="metric-value">${(sentiment.accuracy * 100).toFixed(1)}%</div><div class="metric-label">Accuracy</div></div>
-                <div class="metric-card"><div class="metric-value">${sentiment.f1_score}</div><div class="metric-label">F1 Score</div></div>
-                <div class="metric-card"><div class="metric-value">${sentiment.precision}</div><div class="metric-label">Precision</div></div>
-                <div class="metric-card"><div class="metric-value">${sentiment.recall}</div><div class="metric-label">Recall</div></div>
-            </div>
-            <p style="color:var(--txt-dim); font-size:12.5px;">Trained ${sentiment.classifier} on ${sentiment.train_size} docs, tested on ${sentiment.test_size}.</p>
         `;
     }
 

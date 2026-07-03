@@ -106,20 +106,13 @@
                     </div>
 
                     <div class="chart-config-card">
-                        <div class="chart-card-title"><i class="fas fa-face-smile"></i> Sentiment / Classification</div>
+                        <div class="chart-card-title"><i class="fas fa-face-smile"></i> Sentiment</div>
                         <div class="form-group">
-                            <label>Label column (optional — leave empty for lexicon-based sentiment)</label>
-                            <select id="nlp-dev-label" class="form-select">
-                                <option value="">— None (rule-based sentiment) —</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>Classifier</label>
-                            <select id="nlp-dev-classifier" class="form-select">
-                                <option value="logistic_regression">Logistic Regression</option>
-                                <option value="naive_bayes">Naive Bayes</option>
-                                <option value="linear_svc">Linear SVC</option>
-                            </select>
+                            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                                <input type="checkbox" id="nlp-dev-sentiment" checked>
+                                Include rule-based sentiment
+                            </label>
+                            <p class="hint">Lightweight lexicon signal, not a trained model. Need a real trained classifier on a label column? Use the <a href="/ml">ML page</a> (Phase 5) instead — that's where model training belongs.</p>
                         </div>
                     </div>
                 </div>
@@ -131,7 +124,7 @@
                 </div>
             </div>
 
-            <div class="viz-loading" id="nlp-loading">
+            <div class="viz-loading" id="nlp-loading" style="display:none; min-height:220px; flex-direction:column; align-items:center; justify-content:center; text-align:center;">
                 <div class="viz-spinner"></div>
                 <p>Analyzing text…</p>
             </div>

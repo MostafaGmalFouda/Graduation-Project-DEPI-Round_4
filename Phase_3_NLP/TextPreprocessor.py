@@ -1,6 +1,32 @@
 import re
 import pandas as pd
 
+# NLTK lemmatization: reduces word variants (running/runs/ran -> run) so
+# frequency/keyword counts reflect the REAL concept instead of splitting it
+# across multiple surface forms. This is the fix for noisy/irrelevant
+# keywords. Falls back to no-op (identity) if nltk/wordnet isn't available,
+# so the app doesn't crash if the corpus hasn't been downloaded yet.
+try:
+    import nltk
+    from nltk.stem import WordNetLemmatizer
+
+    def _ensure_wordnet():
+        for resource in ("corpora/wordnet", "corpora/omw-1.4"):
+            try:
+                nltk.data.find(resource)
+            except LookupError:
+                nltk.download(resource.split("/")[-1], quiet=True)
+
+    _ensure_wordnet()
+    _lemmatizer = WordNetLemmatizer()
+except Exception:
+    _lemmatizer = None
+
+
+def _lemmatize(word: str) -> str:
+    return _lemmatizer.lemmatize(word) if _lemmatizer else word
+
+
 # Small, dependency-free English stopword list (avoids needing nltk downloads
 # at runtime). Good enough for frequency / keyword analysis purposes.
 STOPWORDS = set("""
@@ -20,6 +46,15 @@ with won't would wouldn't you you'd you'll you're you've your yours
 yourself yourselves it's im
 """.split())
 
+# Generic filler words that dominate keyword lists without adding analytical
+# value, regardless of domain (unlike, say, "amazon" or "shipping" which are
+# dataset-specific — add those separately per-project if needed).
+EXTRA_STOPWORDS = set("""
+one use used using would like get got also really much
+""".split())
+
+STOPWORDS = STOPWORDS.union(EXTRA_STOPWORDS)
+
 _HTML_TAG_RE = re.compile(r"<[^>]+>")
 _URL_RE = re.compile(r"https?://\S+|www\.\S+")
 _NON_ALPHA_RE = re.compile(r"[^a-zA-Z\u0600-\u06FF\s]")
@@ -32,7 +67,8 @@ class TextPreprocessor:
 
     Handles both English and Arabic text reasonably (keeps Arabic unicode
     range, strips HTML/urls/punctuation/digits, lowercases Latin text,
-    collapses whitespace). Stopword removal only applies to English.
+    collapses whitespace). Stopword removal AND lemmatization only apply to
+    English (WordNetLemmatizer silently no-ops on non-English tokens).
     """
 
     def __init__(self, texts):
@@ -54,7 +90,12 @@ class TextPreprocessor:
         text = _NON_ALPHA_RE.sub(" ", text)
         text = _MULTISPACE_RE.sub(" ", text).strip()
         if remove_stopwords:
-            tokens = [t for t in text.split() if t not in STOPWORDS and len(t) > 1]
+            tokens = []
+            for t in text.split():
+                # min length 2 -> 2, so 2-letter noise like "im"/"ok" is dropped too
+                if t in STOPWORDS or len(t) <= 2:
+                    continue
+                tokens.append(_lemmatize(t))
             return " ".join(tokens)
         return text
 

@@ -1,8 +1,9 @@
 import os
+import random
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import numpy as np
+from wordcloud import WordCloud
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -13,6 +14,11 @@ TEXT_COLOR = "#e0e0e0"
 ACCENT_PURPLE = "#a855f7"
 ACCENT_CYAN = "#06d49d"
 PALETTE = [ACCENT_CYAN, ACCENT_PURPLE, "#a248eccf", "#8959f9c8", "#0ee98ed8"]
+
+
+def _neon_color_func(word=None, font_size=None, position=None, orientation=None,
+                      font_path=None, random_state=None):
+    return random.choice(PALETTE)
 
 
 class NLPVisualizer:
@@ -67,19 +73,23 @@ class NLPVisualizer:
         ax.set_ylabel("Documents")
         return self._save(fig, filename)
 
-    def plot_confusion_matrix(self, cm, labels, filename: str = "nlp_confusion_matrix.png") -> str:
-        cm = np.array(cm)
-        fig, ax = self._new_fig(figsize=(6, 5))
-        im = ax.imshow(cm, cmap="mako" if False else "viridis")
-        ax.set_xticks(range(len(labels)))
-        ax.set_yticks(range(len(labels)))
-        ax.set_xticklabels(labels, rotation=45, ha="right", color=TEXT_COLOR)
-        ax.set_yticklabels(labels, color=TEXT_COLOR)
-        ax.set_xlabel("Predicted")
-        ax.set_ylabel("Actual")
-        ax.set_title("Confusion Matrix")
-        for i in range(len(labels)):
-            for j in range(len(labels)):
-                ax.text(j, i, str(cm[i, j]), ha="center", va="center",
-                        color="white" if cm[i, j] > cm.max() / 2 else "black")
+    def plot_wordcloud(self, word_frequency: list, filename: str = "wordcloud.png") -> str:
+        """word_frequency: the same list produced by NLPAnalyzer.word_frequency()
+        — [{"word": ..., "count": ...}, ...]"""
+        freqs = {item["word"]: item["count"] for item in word_frequency if item.get("count", 0) > 0}
+        if not freqs:
+            freqs = {"no_data": 1}
+
+        wc = WordCloud(
+            width=900, height=450,
+            background_color=BG_COLOR,
+            color_func=_neon_color_func,
+            prefer_horizontal=0.9,
+        ).generate_from_frequencies(freqs)
+
+        fig, ax = plt.subplots(figsize=(9, 4.5))
+        fig.patch.set_facecolor(BG_COLOR)
+        ax.imshow(wc, interpolation="bilinear")
+        ax.axis("off")
+        ax.set_title("Word Cloud", color=ACCENT_CYAN)
         return self._save(fig, filename)

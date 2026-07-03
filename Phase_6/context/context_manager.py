@@ -62,6 +62,12 @@ class ChatContext:
     def log_nlp(self, text_column, description):
         self.nlp_context.add_analysis(text_column, description)
 
+    def log_nlp_raw_texts(self, text_column, texts):
+        """Feed actual text content (not just the summary) so the RAG
+        chatbot can answer content questions, e.g. 'what are the main
+        complaints in the reviews?'."""
+        self.nlp_context.add_raw_texts(text_column, texts)
+
     def add_conversation_turn(self, question, answer):
         self.conversation_context.add_turn(question, answer)
 
@@ -75,6 +81,7 @@ class ChatContext:
             "prediction": self.prediction_context.get_context(),
             "conversation": self.conversation_context.get_context(),
             "nlp": self.nlp_context.get_context(),
+            "nlp_raw_texts": self.nlp_context.get_raw_texts(),
         }
 
     @classmethod
@@ -89,6 +96,7 @@ class ChatContext:
         ctx.prediction_context.history = data.get("prediction", []) or []
         ctx.conversation_context.turns = data.get("conversation", []) or []
         ctx.nlp_context.analyses = data.get("nlp", []) or []
+        ctx.nlp_context.raw_texts = data.get("nlp_raw_texts", []) or []
         return ctx
 
 

@@ -1068,44 +1068,50 @@ def nlp_analyze():
         return jsonify({"status": "error", "message": f"Column '{text_column}' not found."}), 400
 
     auto = data.get("auto", "true") == "true"
-    label_column = data.get("label_column") or None
     method = data.get("method", "tfidf")
     ngram_max = int(data.get("ngram_max", 1))
-    classifier = data.get("classifier", "logistic_regression")
     top_n = int(data.get("top_n", 20))
+    include_sentiment = data.get("include_sentiment", "true") == "true"
 
     try:
         analyzer = NLPAnalyzer(df, text_column)
         result = analyzer.analyze(
             auto=auto,
-            label_column=label_column,
             method=method,
             ngram_range=(1, max(1, ngram_max)),
-            classifier=classifier,
             top_n=top_n,
+            include_sentiment=include_sentiment,
         )
+
+        # Unique suffix per run: without this, every analysis overwrote the
+        # SAME filename (e.g. "keywords.png"), so the browser kept showing
+        # the old cached image at that URL even after re-running the
+        # analysis — and two sessions running NLP at the same time would
+        # clobber each other's plot files on disk.
+        run_id = uuid.uuid4().hex[:8]
 
         viz = NLPVisualizer(plots_dir=NLP_PLOTS_FOLDER)
         plots = {
-            "word_frequency": os.path.basename(viz.plot_word_frequency(result["word_frequency"])),
-            "keywords": os.path.basename(viz.plot_keywords(result["keywords"])),
+            "word_frequency": os.path.basename(
+                viz.plot_word_frequency(result["word_frequency"], filename=f"word_frequency_{run_id}.png")
+            ),
+            "keywords": os.path.basename(
+                viz.plot_keywords(result["keywords"], filename=f"keywords_{run_id}.png")
+            ),
+            "word_cloud": os.path.basename(
+                viz.plot_wordcloud(result["word_frequency"], filename=f"wordcloud_{run_id}.png")
+            ),
         }
-        sentiment = result["sentiment"]
-        if sentiment.get("method") == "lexicon":
+
+        summary_line = ""
+        if include_sentiment:
+            sentiment = result["sentiment"]
             plots["sentiment_distribution"] = os.path.basename(
-                viz.plot_sentiment_distribution(sentiment["distribution"])
+                viz.plot_sentiment_distribution(sentiment["distribution"], filename=f"sentiment_{run_id}.png")
             )
             summary_line = (
                 f"Lexicon-based sentiment on '{text_column}': "
                 f"{sentiment['distribution']} ({sentiment['dominant_sentiment']} dominant)."
-            )
-        else:
-            plots["confusion_matrix"] = os.path.basename(
-                viz.plot_confusion_matrix(sentiment["confusion_matrix"], sentiment["labels"])
-            )
-            summary_line = (
-                f"Trained {sentiment['classifier']} classifier on '{text_column}' vs '{label_column}': "
-                f"accuracy={sentiment['accuracy']}, f1={sentiment['f1_score']}."
             )
 
         stats = result["statistics"]
@@ -1117,6 +1123,9 @@ def nlp_analyze():
 
         ctx = get_chat_context()
         ctx.log_nlp(text_column, description)
+        # Feed the actual text content (capped sample) so the chatbot can
+        # answer content questions, not just questions about the summary.
+        ctx.log_nlp_raw_texts(text_column, analyzer.raw_text_samples())
         save_chat_context(ctx)
 
         result["plots"] = plots

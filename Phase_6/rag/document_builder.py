@@ -99,7 +99,7 @@ def build_documents(chat_context):
             )
         )
 
-    # NLP analyses (optional)
+    # NLP analyses — the statistical summary (keywords, sentiment, stats)
     for analysis in chat_context.nlp_context.get_context():
         documents.append(
             Document(
@@ -110,6 +110,21 @@ def build_documents(chat_context):
                 metadata={"source": "nlp", "text_column": analysis["text_column"]},
             )
         )
+
+    # NLP raw text content — the ACTUAL text (reviews/comments/etc.), so the
+    # chatbot can answer content questions ("what are people complaining
+    # about?"), not just questions about the summary statistics above.
+    for entry in chat_context.nlp_context.get_raw_texts():
+        col = entry["text_column"]
+        for i, text in enumerate(entry["texts"]):
+            if not text or not text.strip():
+                continue
+            documents.append(
+                Document(
+                    page_content=text,
+                    metadata={"source": "nlp_raw_text", "text_column": col, "row": i},
+                )
+            )
 
     # Model info (optional)
     model_data = chat_context.model_context.get_context()
