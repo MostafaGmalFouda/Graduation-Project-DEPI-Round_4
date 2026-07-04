@@ -8,8 +8,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/phase2_style.css') }}" />
     <link rel="stylesheet" href="{{ url_for('static', filename='css/app_shell.css') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/phase2_style.css') }}" />
 
     <style>
         #user-mode,
@@ -22,8 +22,8 @@
 
 <link rel="stylesheet" href="{{ url_for('static',filename='css/chatbot.css') }}">
 
-<body>
 
+<body>
     {% include "components/sidebar.html" %}
 
     <div id="content-area">
@@ -35,22 +35,6 @@
             <p id="mode-title">Loading Mode...</p>
         </div>
 
-        <!-- ═════════════════════════════════════
-             NEXT STEP — choose NLP or ML
-             (always visible, not just "at the end")
-        ══════════════════════════════════════ -->
-        <div class="next-step-card">
-            <div class="next-step-text">
-                <i class="fas fa-arrow-right-long"></i>
-                <span>Done exploring? Continue your pipeline with:</span>
-            </div>
-            <div class="next-step-actions">
-                <a href="/nlp" class="next-step-btn nlp"><i class="fas fa-comment-dots"></i> NLP</a>
-                <a href="/ml" class="next-step-btn ml"><i class="fas fa-brain"></i> ML</a>
-            </div>
-        </div>
-
-
         <!-- USER MODE: Automatic Dashboard -->
         <div id="user-mode">
             <div class="auto-dashboard">
@@ -60,6 +44,7 @@
                 </div>
                 <div id="dashboard-content" style="display:none;">
                     <h1 style="text-align:center;">📊 Automatic EDA Dashboard</h1>
+                    <br>
                     <div id="auto-plots"></div>
                 </div>
             </div>
@@ -418,8 +403,7 @@
         </div><!-- /developer-mode -->
 
     </div><!-- /phase2-stage -->
-    </div><!-- /content-area -->
-
+    </div>
     <script>
         async function initPhase2() {
             const mode = "{{ mode }}";
@@ -467,9 +451,10 @@
 
         window.onload = initPhase2;
     </script>
-
-</body>
     <script src="{{ url_for('static', filename='scripts/chatbot.js') }}"></script>
     <script src="{{ url_for('static', filename='scripts/sidebar_shell.js') }}"></script>
+
+
+</body>
 
 </html>

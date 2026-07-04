@@ -195,7 +195,7 @@ body:has(#sidebar.collapsed) #content-area {
         transform: translateX(0); 
     }
     #content-area { 
-        width: 100%; 
+        width: auto; 
         margin-left: 0 !important; /* إلغاء الإزاحة على الموبايل لأن السايد بار تصبح منبثقة */
     }
 }
@@ -331,7 +331,7 @@ body:has(#sidebar.collapsed) #content-area {
     border-top: 3px solid transparent;
 }
 .user-card { border-top-color: rgba(20,255,208,0.55); background: linear-gradient(180deg, rgba(20,255,208,0.045), transparent 40%), var(--bg-card); }
-.dev-card  { border-top-color: rgba(163,51,255,0.6); background: linear-gradient(180deg, rgba(163,51,255,0.06), transparent 40%), var(--bg-card); }
+.dev-select-card { border-top-color: rgba(163,51,255,0.6); background: linear-gradient(180deg, rgba(163,51,255,0.06), transparent 40%), var(--bg-card); }
 
 .mode-card::before {
     content: "";
@@ -342,7 +342,7 @@ body:has(#sidebar.collapsed) #content-area {
     pointer-events: none;
 }
 .user-card::before { background: radial-gradient(circle at 30% 0%, rgba(20,255,208,0.16), transparent 60%); }
-.dev-card::before { background: radial-gradient(circle at 30% 0%, rgba(163,51,255,0.18), transparent 60%); }
+.dev-select-card::before { background: radial-gradient(circle at 30% 0%, rgba(163,51,255,0.18), transparent 60%); }
 .mode-card:hover::before { opacity: 1; }
 
 .mode-card:hover {
@@ -352,7 +352,7 @@ body:has(#sidebar.collapsed) #content-area {
     border-color: var(--neon-c);
     box-shadow: 0 25px 60px rgba(20, 255, 208, 0.18);
 }
-.mode-card.dev-card:hover {
+.mode-card.dev-select-card:hover {
     border-color: var(--neon-p);
     box-shadow: 0 25px 60px rgba(163, 51, 255, 0.2);
 }
@@ -374,7 +374,7 @@ body:has(#sidebar.collapsed) #content-area {
     color: var(--neon-c);
     box-shadow: 0 0 28px rgba(20, 255, 208, 0.18);
 }
-.dev-card .mode-card-icon {
+.dev-select-card .mode-card-icon {
     background: rgba(163, 51, 255, 0.12);
     color: var(--neon-p);
     box-shadow: 0 0 28px rgba(163, 51, 255, 0.18);
@@ -388,7 +388,7 @@ body:has(#sidebar.collapsed) #content-area {
     z-index: 1;
 }
 .user-card h2 { color: var(--neon-c); }
-.dev-card h2 { color: var(--neon-p); }
+.dev-select-card h2 { color: var(--neon-p); }
 
 .mode-card .mode-tag {
     display: inline-block;
@@ -432,7 +432,7 @@ body:has(#sidebar.collapsed) #content-area {
     flex-shrink: 0;
 }
 .user-card ul li::before { background: var(--neon-c); box-shadow: 0 0 8px var(--neon-c); }
-.dev-card ul li::before { background: var(--neon-p); box-shadow: 0 0 8px var(--neon-p); }
+.dev-select-card ul li::before { background: var(--neon-p); box-shadow: 0 0 8px var(--neon-p); }
 
 .mode-card-cta {
     margin-top: 28px;
@@ -450,7 +450,7 @@ body:has(#sidebar.collapsed) #content-area {
     z-index: 1;
 }
 .user-card .mode-card-cta { color: var(--neon-c); border: 1px solid var(--neon-c); }
-.dev-card .mode-card-cta { color: var(--neon-p); border: 1px solid var(--neon-p); }
+.dev-select-card .mode-card-cta { color: var(--neon-p); border: 1px solid var(--neon-p); }
 .mode-card:hover .mode-card-cta { letter-spacing: 3px; }
 
 /* ---------------------------------------------------------------------
@@ -947,4 +947,11 @@ body.mode-developer .orbit-c {
 body.mode-developer #start-btn.purple-btn:hover { 
     transform: translateY(-3px); 
     box-shadow: 0 15px 30px rgba(163, 51, 255, 0.5), 0 0 40px rgba(163, 51, 255, 0.4); 
+}
+
+
+/* //////////////////////////// */
+
+#content-area {
+    width: 1400px !important;
 }

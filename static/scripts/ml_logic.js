@@ -82,6 +82,7 @@ document.getElementById("ml-dev-run-btn")?.addEventListener("click", () => train
 async function trainML(auto) {
     const loading = document.getElementById("ml-loading");
     const results = document.getElementById("ml-results");
+    loading.style.display = "flex";
     loading.classList.add("active");
     results.style.display = "none";
 
@@ -112,6 +113,7 @@ async function trainML(auto) {
     try {
         const res = await fetch("/ml/train", { method: "POST", body: formData });
         const data = await res.json();
+        loading.style.display = "none";
         loading.classList.remove("active");
 
         if (data.status !== "success") {
@@ -124,6 +126,7 @@ async function trainML(auto) {
         results.style.display = "block";
         showToast(`Trained ${data.model_name} — ready.`, "success");
     } catch (e) {
+        loading.style.display = "none";
         loading.classList.remove("active");
         showToast("Request failed: " + e.message, "error");
     }
