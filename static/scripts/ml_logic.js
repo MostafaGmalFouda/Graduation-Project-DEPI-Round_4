@@ -2,7 +2,7 @@
    BRight AI — Phase 5: ML Logic
    ============================================================ */
 
-const ML = { columns: [], guessedTarget: null, availableModels: {}, lastResult: null };
+const ML = { columns: [], guessedTarget: null, availableModels: {}, lastResult: null, recommendation: null, recommendedModel: null, predictSchema: null };
 
 async function initML() {
     document.getElementById("mode-title").textContent =
@@ -34,10 +34,19 @@ async function initML() {
             document.getElementById("ml-meta-cols").textContent = `${data.cols} columns`;
 
             const targetSelect = document.getElementById("ml-user-target");
-            targetSelect.innerHTML = data.columns.map(c =>
-                `<option value="${c}" ${c === data.guessed_target ? "selected" : ""}>${c}</option>`
-            ).join("");
-            document.getElementById("ml-guessed-badge").style.display = "inline-block";
+            targetSelect.innerHTML =
+                `<option value="" selected disabled>-- Choose a target column --</option>` +
+                data.columns.map(c => `<option value="${c}">${c}</option>`).join("");
+
+            const badge = document.getElementById("ml-guessed-badge");
+            if (data.guessed_target) {
+                badge.textContent = `Suggested: ${data.guessed_target} (click to use)`;
+                badge.style.display = "inline-block";
+                badge.style.cursor = "pointer";
+                badge.onclick = () => { targetSelect.value = data.guessed_target; };
+            } else {
+                badge.style.display = "none";
+            }
         }
     } catch (e) {
         showToast("Could not reach the server: " + e.message, "error");
@@ -46,9 +55,21 @@ async function initML() {
 
 function initDeveloperForm(data) {
     const targetSelect = document.getElementById("ml-dev-target");
-    targetSelect.innerHTML = data.columns.map(c =>
-        `<option value="${c}" ${c === data.guessed_target ? "selected" : ""}>${c}</option>`
-    ).join("");
+    targetSelect.innerHTML =
+        `<option value="" selected disabled>-- Choose a target column --</option>` +
+        data.columns.map(c => `<option value="${c}">${c}</option>`).join("");
+
+    const devBadge = document.getElementById("ml-dev-guessed-badge");
+    if (devBadge) {
+        if (data.guessed_target) {
+            devBadge.textContent = `Suggested: ${data.guessed_target} (click to use)`;
+            devBadge.style.display = "inline-block";
+            devBadge.style.cursor = "pointer";
+            devBadge.onclick = () => { targetSelect.value = data.guessed_target; targetSelect.dispatchEvent(new Event("change")); };
+        } else {
+            devBadge.style.display = "none";
+        }
+    }
 
     const taskSelect = document.getElementById("ml-dev-task");
     const modelSelect = document.getElementById("ml-dev-model");
@@ -66,34 +87,148 @@ function initDeveloperForm(data) {
     function refreshFeatureChecklist() {
         const target = targetSelect.value;
         const container = document.getElementById("ml-dev-features");
-        container.innerHTML = data.columns.filter(c => c !== target).map(c => `
-            <label class="col-chip categorical" style="cursor:pointer;">
-                <input type="checkbox" class="ml-feature-check" value="${c}" checked style="margin-right:6px;">${c}
-            </label>
-        `).join("");
+
+        if (!target) {
+            container.innerHTML = `<p style="color:var(--txt-dim); font-size:12.5px;">Choose a target column above to see available features.</p>`;
+            return;
+        }
+
+        const candidateColumns = data.columns.filter(c => c !== target);
+        container.innerHTML = `<p style="color:var(--txt-dim); font-size:12.5px;">Loading features…</p>`;
+
+        fetch(`/ml/feature_schema?columns=${encodeURIComponent(candidateColumns.join(","))}`)
+            .then(res => res.json())
+            .then(schemaData => {
+                const features = schemaData.status === "success" ? schemaData.features : null;
+                if (!features) {
+                    container.innerHTML = candidateColumns.map(c => `
+                        <label class="col-chip categorical" style="cursor:pointer;">
+                            <input type="checkbox" class="ml-feature-check" data-columns="${c}" checked style="margin-right:6px;">${c}
+                        </label>
+                    `).join("");
+                    return;
+                }
+                // One entry per ORIGINAL column — a One-Hot group (e.g.
+                // Gender_Male/Gender_Female) shows up once as "Gender",
+                // and checking/unchecking it toggles all its encoded columns.
+                container.innerHTML = features.map(f => `
+                    <label class="col-chip ${f.type}" style="cursor:pointer;">
+                        <input type="checkbox" class="ml-feature-check" data-columns="${f.clean_columns.join(",")}" checked style="margin-right:6px;">${f.name}
+                        ${f.type === "categorical" ? `<span class="hint">(${f.options.length} categories)</span>` : ""}
+                    </label>
+                `).join("");
+            })
+            .catch(() => {
+                container.innerHTML = candidateColumns.map(c => `
+                    <label class="col-chip categorical" style="cursor:pointer;">
+                        <input type="checkbox" class="ml-feature-check" data-columns="${c}" checked style="margin-right:6px;">${c}
+                    </label>
+                `).join("");
+            });
     }
     targetSelect.addEventListener("change", refreshFeatureChecklist);
     refreshFeatureChecklist();
 }
 
-document.getElementById("ml-auto-run-btn")?.addEventListener("click", () => trainML(true));
+document.getElementById("ml-auto-recommend-btn")?.addEventListener("click", getRecommendation);
+document.getElementById("ml-accept-recommend-btn")?.addEventListener("click", () => trainML(true, ML.recommendedModel));
+document.getElementById("ml-choose-another-btn")?.addEventListener("click", toggleAltPicker);
+document.getElementById("ml-train-alt-btn")?.addEventListener("click", () => {
+    const alt = document.getElementById("ml-alt-model-select").value;
+    if (alt) trainML(true, alt);
+});
 document.getElementById("ml-dev-run-btn")?.addEventListener("click", () => trainML(false));
 
-async function trainML(auto) {
+async function getRecommendation() {
+    const btn = document.getElementById("ml-auto-recommend-btn");
+    const target = document.getElementById("ml-user-target").value;
+
+    if (!target) {
+        showToast("Please choose a target column first.", "error");
+        return;
+    }
+
+    btn.disabled = true;
+    document.getElementById("ml-recommend-card").style.display = "none";
+    document.getElementById("ml-alt-model-picker").style.display = "none";
+    document.getElementById("ml-results").style.display = "none";
+
+    const formData = new FormData();
+    formData.append("target_column", target);
+
+    try {
+        const res = await fetch("/ml/recommend", { method: "POST", body: formData });
+        const data = await res.json();
+        btn.disabled = false;
+
+        if (data.status !== "success") {
+            showToast(data.message || "Could not compute a recommendation.", "error");
+            return;
+        }
+
+        ML.recommendation = data;
+        ML.recommendedModel = data.recommended_model;
+        renderRecommendation(data);
+    } catch (e) {
+        btn.disabled = false;
+        showToast("Request failed: " + e.message, "error");
+    }
+}
+
+function renderRecommendation(data) {
+    const best = data.candidates.find(c => c.model === data.recommended_model) || data.candidates[0];
+    const scoreLabel = data.task_type === "classification"
+        ? `CV accuracy: ${(best.score * 100).toFixed(1)}%`
+        : `CV R² score: ${best.score.toFixed(3)}`;
+
+    document.getElementById("ml-recommend-name").textContent = best.model.replace(/_/g, " ");
+    document.getElementById("ml-recommend-score").textContent = scoreLabel;
+
+    const list = document.getElementById("ml-recommend-candidates");
+    list.innerHTML = data.candidates.map(c => `
+        <div class="candidate-row ${c.model === data.recommended_model ? "is-best" : ""}">
+            <span class="candidate-name">${c.model.replace(/_/g, " ")}</span>
+            <span class="candidate-score">${c.score <= -1e8 ? "n/a" : c.score.toFixed(3)}</span>
+        </div>
+    `).join("");
+
+    const altSelect = document.getElementById("ml-alt-model-select");
+    altSelect.innerHTML = data.candidates
+        .filter(c => c.model !== data.recommended_model)
+        .map(c => `<option value="${c.model}">${c.model.replace(/_/g, " ")}</option>`)
+        .join("");
+
+    document.getElementById("ml-alt-model-picker").style.display = "none";
+    document.getElementById("ml-recommend-card").style.display = "block";
+}
+
+function toggleAltPicker() {
+    const picker = document.getElementById("ml-alt-model-picker");
+    picker.style.display = picker.style.display === "none" ? "block" : "none";
+}
+
+async function trainML(auto, modelName) {
     const loading = document.getElementById("ml-loading");
     const results = document.getElementById("ml-results");
+
+    const targetFieldId = auto ? "ml-user-target" : "ml-dev-target";
+    const target = document.getElementById(targetFieldId).value;
+    if (!target) {
+        showToast("Please choose a target column first.", "error");
+        return;
+    }
+
     loading.style.display = "flex";
     loading.classList.add("active");
     results.style.display = "none";
 
     const formData = new FormData();
     formData.append("mode", auto ? "user" : "developer");
+    formData.append("target_column", target);
 
     if (auto) {
-        const target = document.getElementById("ml-user-target").value;
-        if (target) formData.append("target_column", target);
+        if (modelName) formData.append("model_name", modelName);
     } else {
-        formData.append("target_column", document.getElementById("ml-dev-target").value);
         formData.append("model_name", document.getElementById("ml-dev-model").value);
         const task = document.getElementById("ml-dev-task").value;
         if (task) formData.append("task_type", task);
@@ -106,7 +241,7 @@ async function trainML(auto) {
         if (maxDepth) formData.append("max_depth", maxDepth);
 
         document.querySelectorAll(".ml-feature-check:checked").forEach(cb => {
-            formData.append("feature_columns", cb.value);
+            cb.dataset.columns.split(",").forEach(col => formData.append("feature_columns", col));
         });
     }
 
@@ -136,6 +271,21 @@ function renderMLResults(data) {
     const metrics = data.metrics;
     const cards = document.getElementById("ml-metric-cards");
 
+    // User Mode: tell them whether they trained the recommended model or a
+    // manually-chosen alternative from the "Choose Another Model" list.
+    const noteBox = document.getElementById("ml-mode-note");
+    if (noteBox) {
+        if (data.mode === "user" && ML.recommendedModel) {
+            const isRecommended = data.model_name === ML.recommendedModel;
+            noteBox.style.display = "block";
+            noteBox.innerHTML = isRecommended
+                ? `<i class="fas fa-star"></i> Trained the <b>recommended</b> model: ${data.model_name.replace(/_/g, " ")}`
+                : `<i class="fas fa-list"></i> Trained <b>${data.model_name.replace(/_/g, " ")}</b> (recommended was ${ML.recommendedModel.replace(/_/g, " ")})`;
+        } else {
+            noteBox.style.display = "none";
+        }
+    }
+
     if (metrics.task_type === "classification") {
         cards.innerHTML = `
             <div class="metric-card"><div class="metric-value">${(metrics.accuracy * 100).toFixed(1)}%</div><div class="metric-label">Accuracy</div></div>
@@ -158,23 +308,98 @@ function renderMLResults(data) {
         plotsGrid.innerHTML += plotCard(key, `/ml/view/${filename}`, `/ml/download/${filename}`);
     }
 
-    // Build the "try a prediction" form from the model's feature columns
+    // Build the "try a prediction" form using the ORIGINAL feature identity
+    // (categorical dropdowns with real category names, numeric inputs with
+    // a real observed range) instead of raw encoded columns.
+    renderPredictForm(data.feature_columns);
+}
+
+function round2(n) {
+    return Math.round(n * 100) / 100;
+}
+
+async function renderPredictForm(featureColumns) {
     const predictForm = document.getElementById("ml-predict-form");
-    predictForm.innerHTML = data.feature_columns.map(f => `
-        <div class="chart-config-card" style="padding:12px 16px;">
-            <div class="form-group" style="margin-bottom:0;">
-                <label>${f}</label>
-                <input type="number" step="any" class="form-select ml-predict-input" data-feature="${f}" placeholder="value">
+    predictForm.innerHTML = `<p style="color:var(--txt-dim); font-size:13px;">Loading feature info…</p>`;
+
+    let features = null;
+    try {
+        const res = await fetch(`/ml/feature_schema?columns=${encodeURIComponent(featureColumns.join(","))}`);
+        const schemaData = await res.json();
+        if (schemaData.status === "success") features = schemaData.features;
+    } catch (e) {
+        features = null;
+    }
+
+    if (!features) {
+        // Fallback: plain numeric inputs, same as before.
+        ML.predictSchema = null;
+        predictForm.innerHTML = featureColumns.map(f => `
+            <div class="chart-config-card" style="padding:12px 16px;">
+                <div class="form-group" style="margin-bottom:0;">
+                    <label>${f}</label>
+                    <input type="number" step="any" class="form-select ml-predict-input" data-name="${f}" placeholder="value">
+                </div>
             </div>
-        </div>
-    `).join("");
+        `).join("");
+        return;
+    }
+
+    ML.predictSchema = features;
+    predictForm.innerHTML = features.map(f => {
+        if (f.type === "categorical") {
+            const opts = f.options.map(opt => `<option value="${opt}">${opt}</option>`).join("");
+            return `
+                <div class="chart-config-card" style="padding:12px 16px;">
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label>${f.name}</label>
+                        <select class="form-select ml-predict-input" data-name="${f.name}">${opts}</select>
+                    </div>
+                </div>
+            `;
+        }
+        const hasRange = f.min !== null && f.min !== undefined && f.max !== null && f.max !== undefined;
+        const hint = hasRange ? `<span class="hint">range: ${round2(f.min)} – ${round2(f.max)}</span>` : "";
+        return `
+            <div class="chart-config-card" style="padding:12px 16px;">
+                <div class="form-group" style="margin-bottom:0;">
+                    <label>${f.name} ${hint}</label>
+                    <input type="number" step="any" class="form-select ml-predict-input" data-name="${f.name}" placeholder="value">
+                </div>
+            </div>
+        `;
+    }).join("");
 }
 
 document.getElementById("ml-predict-btn")?.addEventListener("click", async () => {
     if (!ML.lastResult) return;
     const row = {};
+    const schema = ML.predictSchema;
+
     document.querySelectorAll(".ml-predict-input").forEach(inp => {
-        row[inp.dataset.feature] = inp.value || 0;
+        const name = inp.dataset.name;
+        const feat = schema ? schema.find(f => f.name === name) : null;
+
+        if (!feat) {
+            // No schema available (fallback mode) — send as-is.
+            row[name] = inp.value || 0;
+            return;
+        }
+
+        if (feat.type === "categorical" && feat.value_map) {
+            // Label-Encoded: translate the chosen original label back to
+            // the numeric code the model was actually trained on.
+            const selectedLabel = inp.value;
+            const code = Object.keys(feat.value_map).find(k => feat.value_map[k] === selectedLabel);
+            row[feat.clean_columns[0]] = code !== undefined ? code : 0;
+        } else if (feat.type === "categorical" && feat.column_by_category) {
+            // One-Hot group: set the chosen category's column to 1, rest to 0.
+            feat.clean_columns.forEach(col => { row[col] = 0; });
+            const targetCol = feat.column_by_category[inp.value];
+            if (targetCol) row[targetCol] = 1;
+        } else {
+            row[feat.clean_columns[0]] = inp.value || 0;
+        }
     });
 
     try {

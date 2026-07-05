@@ -98,3 +98,72 @@
 
 /* ── Reused disabled-state helper ──────────────────────────────────── */
 .run-all-btn:disabled i { opacity: 0.6; }
+
+/* ── User Mode: recommendation card (accept / choose another) ───────── */
+.run-all-btn.secondary-btn {
+    background: transparent;
+    border: 1px solid var(--border-glass);
+    color: var(--txt-dim);
+}
+.run-all-btn.secondary-btn:hover {
+    border-color: var(--neon-p);
+    color: var(--neon-p);
+}
+
+.recommend-best {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 14px 18px;
+    margin-bottom: 14px;
+    border-radius: 12px;
+    background: rgba(163, 51, 255, 0.08);
+    border: 1px solid rgba(163, 51, 255, 0.3);
+}
+.recommend-best-info { display: flex; align-items: center; gap: 10px; }
+.recommend-best-name {
+    font-size: 17px;
+    font-weight: 800;
+    color: var(--neon-p);
+    text-transform: capitalize;
+}
+.recommend-best-score {
+    font-size: 13px;
+    color: var(--txt-dim);
+    font-weight: 600;
+}
+
+.recommend-candidates {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 16px;
+}
+.candidate-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 14px;
+    border-radius: 8px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-glass);
+    font-size: 13px;
+}
+.candidate-row.is-best {
+    border-color: var(--neon-c);
+    color: var(--neon-c);
+}
+.candidate-name { text-transform: capitalize; font-weight: 600; }
+.candidate-score { font-family: monospace; }
+
+.mode-note {
+    padding: 10px 16px;
+    margin-bottom: 16px;
+    border-radius: 10px;
+    background: rgba(6, 212, 157, 0.08);
+    border: 1px solid rgba(6, 212, 157, 0.3);
+    color: var(--txt-dim);
+    font-size: 13.5px;
+}
+.mode-note b { color: var(--neon-c); text-transform: capitalize; }

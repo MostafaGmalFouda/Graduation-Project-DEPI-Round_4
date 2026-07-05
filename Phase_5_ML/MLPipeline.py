@@ -82,8 +82,15 @@ class MLPipeline:
         return result
 
     # ── User Mode ──────────────────────────────────────────────────────
-    def run_auto(self, target_column: str = None) -> dict:
-        target_column = target_column or self.trainer.guess_target_column()
+    def recommend_models(self, target_column: str) -> dict:
+        """
+        Preview step for User Mode: the PERSON has already chosen the target
+        column (never auto-guessed here). This detects the task type,
+        cross-validates the candidate pool, and returns a ranked list plus
+        the top pick — WITHOUT training/saving a final model yet.
+        """
+        if not target_column:
+            raise ValueError("Please choose a target column before requesting a recommendation.")
         task_type = self.trainer.detect_task_type(target_column)
 
         X, y, feature_columns = self.trainer.prepare_xy(target_column)
@@ -98,24 +105,81 @@ class MLPipeline:
             mean_score, _ = self.trainer.cross_validate(task_type, name, X_train, y_train, cv=3)
             scores.append({"model": name, "score": mean_score if mean_score is not None else -1e9})
 
-        best = max(scores, key=lambda r: r["score"])
+        ranked = sorted(scores, key=lambda r: r["score"], reverse=True)
+        best = ranked[0]
         comparison_plot = os.path.basename(
             self.visualizer.plot_model_comparison(
                 [s for s in scores if s["score"] != -1e9] or scores
             )
         )
 
-        model, scaler = self.trainer.train_one(task_type, best["model"], X_train, y_train)
+        return {
+            "target_column": target_column,
+            "task_type": task_type,
+            "feature_columns": feature_columns,
+            "candidates": ranked,
+            "recommended_model": best["model"],
+            "plots": {"model_comparison": comparison_plot},
+        }
+
+    def run_auto(self, target_column: str, model_name: str = None) -> dict:
+        """
+        Trains the final User Mode model. `target_column` is REQUIRED — the
+        person picks it, this never falls back to guessing it.
+
+        If `model_name` is None, this re-runs the candidate comparison itself
+        (still useful standalone) and picks the best one. If `model_name` is
+        given (the person accepted the recommendation or picked an
+        alternative from `recommend_models`), that exact model is trained
+        directly — no redundant search.
+        """
+        if not target_column:
+            raise ValueError("Please choose a target column before training.")
+        task_type = self.trainer.detect_task_type(target_column)
+
+        X, y, feature_columns = self.trainer.prepare_xy(target_column)
+        if X.shape[1] == 0:
+            raise ValueError("No usable numeric feature columns remain after excluding the target.")
+
+        X_train, X_test, y_train, y_test = self.trainer.split(X, y, task_type=task_type)
+
+        scores = None
+        comparison_plot = None
+        if model_name:
+            chosen_model = model_name
+            available = ModelFactory.available_models(task_type)
+            if chosen_model not in available:
+                raise ValueError(
+                    f"'{chosen_model}' isn't a valid {task_type} model. "
+                    f"Available: {available}"
+                )
+        else:
+            candidates = ModelFactory.AUTO_CANDIDATES[task_type]
+            scores = []
+            for name in candidates:
+                mean_score, _ = self.trainer.cross_validate(task_type, name, X_train, y_train, cv=3)
+                scores.append({"model": name, "score": mean_score if mean_score is not None else -1e9})
+            best = max(scores, key=lambda r: r["score"])
+            chosen_model = best["model"]
+            comparison_plot = os.path.basename(
+                self.visualizer.plot_model_comparison(
+                    [s for s in scores if s["score"] != -1e9] or scores
+                )
+            )
+
+        model, scaler = self.trainer.train_one(task_type, chosen_model, X_train, y_train)
 
         result = self._finish(
-            task_type, best["model"], model, scaler, X_test, y_test, feature_columns, target_column,
+            task_type, chosen_model, model, scaler, X_test, y_test, feature_columns, target_column,
             extra={
                 "mode": "user",
-                "target_guessed": True,
-                "candidates_compared": scores,
+                "target_guessed": False,
+                "candidates_compared": scores or [],
+                "user_selected_model": chosen_model,
             },
         )
-        result["plots"]["model_comparison"] = comparison_plot
+        if comparison_plot:
+            result["plots"]["model_comparison"] = comparison_plot
         return result
 
     # ── Developer Mode ────────────────────────────────────────────────

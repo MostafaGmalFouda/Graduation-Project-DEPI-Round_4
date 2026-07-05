@@ -36,6 +36,7 @@ from Phase_5_ML.MLPipeline import MLPipeline
 from Phase_5_ML.ModelTrainer import ModelTrainer
 from Phase_5_ML.ModelFactory import ModelFactory
 from Phase_5_ML.Predictor import Predictor
+from Phase_5_ML.Featureschema import FeatureSchema
 
 chatbot = Chatbot()
 
@@ -1181,6 +1182,62 @@ def ml_status():
     })
 
 
+@app.route('/ml/recommend', methods=['POST'])
+def ml_recommend():
+    """
+    User Mode, step 1: cross-validate the candidate pool for the chosen
+    target and return a ranked list + the top pick, WITHOUT training or
+    saving a final model. The frontend shows this as a "Recommended: X"
+    card and lets the person accept it or choose a different candidate
+    before /ml/train actually trains anything.
+    """
+    df = get_clean_df()
+    if df is None:
+        return jsonify({"status": "error", "message": "No preprocessed data available. Run Phase 1 first."}), 400
+
+    target_column = request.form.get("target_column") or None
+    if not target_column:
+        return jsonify({"status": "error", "message": "Please choose a target column first."}), 400
+
+    try:
+        pipeline = MLPipeline(df, plots_dir=ML_PLOTS_FOLDER)
+        result = pipeline.recommend_models(target_column=target_column)
+        result["status"] = "success"
+        return jsonify(result)
+    except Exception as e:
+        print("ML Recommend Error:", e)
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/ml/feature_schema', methods=['GET'])
+def ml_feature_schema():
+    """
+    Returns the ORIGINAL (pre-encoding) identity of the requested clean/
+    encoded columns — e.g. a One-Hot group like 'Gender_Male'/'Gender_Female'
+    collapses into one 'Gender' entry with ['Male', 'Female'] as options, and
+    a Label-Encoded column reports its real category names instead of codes.
+    Used by the Developer Mode feature checklist and the prediction form in
+    both modes, so people never have to read or type raw encoded values.
+    """
+    clean_df = get_clean_df()
+    if clean_df is None:
+        return jsonify({"status": "error", "message": "No preprocessed data available. Run Phase 1 first."}), 400
+
+    raw_df = get_raw_df()  # may be None on older sessions — schema falls back to numeric-only
+
+    columns_param = request.args.get("columns", "")
+    columns = [c for c in columns_param.split(",") if c] or list(clean_df.columns)
+    columns = [c for c in columns if c in clean_df.columns]
+
+    try:
+        schema = FeatureSchema.build(raw_df, clean_df)
+        features = FeatureSchema.to_logical_features(schema, columns)
+        return jsonify({"status": "success", "features": features})
+    except Exception as e:
+        print("Feature Schema Error:", e)
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
 @app.route('/ml/train', methods=['POST'])
 def ml_train():
     df = get_clean_df()
@@ -1195,7 +1252,13 @@ def ml_train():
 
         if mode == "user":
             target_column = data.get("target_column") or None
-            result = pipeline.run_auto(target_column=target_column)
+            if not target_column:
+                return jsonify({"status": "error", "message": "Please choose a target column first."}), 400
+            # Set when the person accepted the recommendation or picked an
+            # alternative from the /ml/recommend step. If absent, run_auto
+            # falls back to searching the candidate pool itself.
+            model_name = data.get("model_name") or None
+            result = pipeline.run_auto(target_column=target_column, model_name=model_name)
         else:
             target_column = data.get("target_column")
             model_name = data.get("model_name", "random_forest")
@@ -1219,7 +1282,7 @@ def ml_train():
                 hyperparams["C"] = float(c_param)
 
             if not target_column:
-                return jsonify({"status": "error", "message": "target_column is required in Developer mode."}), 400
+                return jsonify({"status": "error", "message": "Please choose a target column first."}), 400
 
             result = pipeline.run_manual(
                 target_column=target_column,

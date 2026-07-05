@@ -60,18 +60,53 @@
                         </div>
                     </div>
                     <p style="color:var(--txt-dim); font-size:13.5px; margin-bottom:14px;">
-                        BRight AI will guess the target column and task type, compare a few fast models,
-                        and train the best one automatically. You can override the target below if the guess looks wrong.
+                        Choose your target column below — BRight AI will detect the task type from it,
+                        compare a few fast models, and recommend the best one. You always pick the target;
+                        nothing is auto-selected for you.
                     </p>
                     <div class="form-group" style="max-width:420px;">
-                        <label>Target column <span id="ml-guessed-badge" class="guessed-badge" style="display:none;">auto-detected</span></label>
+                        <label>Target column <span id="ml-guessed-badge" class="guessed-badge" style="display:none;"></span></label>
                         <select id="ml-user-target" class="form-select"></select>
                     </div>
                 </div>
                 <div class="run-all-wrapper">
-                    <button class="run-all-btn" id="ml-auto-run-btn">
-                        <i class="fas fa-wand-magic-sparkles"></i> Train Automatically
+                    <button class="run-all-btn" id="ml-auto-recommend-btn">
+                        <i class="fas fa-magnifying-glass-chart"></i> Get Recommended Model
                     </button>
+                </div>
+
+                <!-- Recommendation card: shown after /ml/recommend, before anything is trained -->
+                <div id="ml-recommend-card" class="summary-panel" style="display:none;">
+                    <div class="summary-panel-header"><h3><i class="fas fa-star"></i> Recommended Model</h3></div>
+                    <div class="recommend-best">
+                        <div class="recommend-best-info">
+                            <span class="guessed-badge">Recommended</span>
+                            <span class="recommend-best-name" id="ml-recommend-name">—</span>
+                        </div>
+                        <div class="recommend-best-score" id="ml-recommend-score">—</div>
+                    </div>
+                    <div class="recommend-candidates" id="ml-recommend-candidates"></div>
+
+                    <div class="run-all-wrapper" style="display:flex; gap:12px; justify-content:center; flex-wrap:wrap;">
+                        <button class="run-all-btn" id="ml-accept-recommend-btn">
+                            <i class="fas fa-check"></i> Train This Model
+                        </button>
+                        <button class="run-all-btn secondary-btn" id="ml-choose-another-btn">
+                            <i class="fas fa-list"></i> Choose Another Model
+                        </button>
+                    </div>
+
+                    <div id="ml-alt-model-picker" style="display:none;">
+                        <div class="form-group" style="max-width:320px; margin:14px auto 0;">
+                            <label>Pick a different model</label>
+                            <select id="ml-alt-model-select" class="form-select"></select>
+                        </div>
+                        <div class="run-all-wrapper">
+                            <button class="run-all-btn" id="ml-train-alt-btn">
+                                <i class="fas fa-play"></i> Train Selected Model
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -81,7 +116,7 @@
                     <div class="chart-config-card">
                         <div class="chart-card-title"><i class="fas fa-bullseye"></i> Target &amp; Task</div>
                         <div class="form-group">
-                            <label>Target column</label>
+                            <label>Target column <span id="ml-dev-guessed-badge" class="guessed-badge" style="display:none;"></span></label>
                             <select id="ml-dev-target" class="form-select"></select>
                         </div>
                         <div class="form-group">
@@ -144,6 +179,8 @@
             <!-- ═════════════════ RESULTS ═════════════════ -->
             <div id="ml-results" style="display:none;">
                 <div class="section-divider"><span>Results</span></div>
+
+                <div id="ml-mode-note" class="mode-note" style="display:none;"></div>
 
                 <div class="metric-row" id="ml-metric-cards"></div>
 
