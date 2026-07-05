@@ -167,3 +167,9 @@
     font-size: 13.5px;
 }
 .mode-note b { color: var(--neon-c); text-transform: capitalize; }
+
+.missing-columns-note {
+    background: rgba(244, 63, 94, 0.08);
+    border: 1px solid rgba(244, 63, 94, 0.3);
+}
+.missing-columns-note b { color: #f43f5e; text-transform: none; }

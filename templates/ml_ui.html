@@ -38,6 +38,8 @@
             </div>
         </div>
 
+        <div id="ml-missing-columns-notice" class="mode-note missing-columns-note" style="display:none;"></div>
+
         <div id="ml-no-data" class="upload-zone" style="display:none;">
             <div class="upload-icon"><i class="fas fa-triangle-exclamation"></i></div>
             <h3>No Data Loaded Yet</h3>
@@ -51,15 +53,15 @@
 
             <!-- ═════════════════ USER MODE ═════════════════ -->
             <div id="ml-user-mode" class="mode-panel">
-                <div class="columns-panel">
-                    <div class="columns-panel-header">
+                <div class="summary-panel">
+                    <div class="summary-panel-header">
                         <h3><i class="fas fa-brain" style="margin-right:8px;"></i> AutoML</h3>
                         <div class="dataset-meta">
                             <div class="meta-chip"><i class="fas fa-rows"></i><span id="ml-meta-rows">—</span></div>
                             <div class="meta-chip"><i class="fas fa-columns"></i><span id="ml-meta-cols">—</span></div>
                         </div>
                     </div>
-                    <p style="color:var(--txt-dim); font-size:13.5px; margin-bottom:14px;">
+                    <p style="color:var(--txt-dim); font-size:13.5px; margin:10px 0 14px;">
                         Choose your target column below — BRight AI will detect the task type from it,
                         compare a few fast models, and recommend the best one. You always pick the target;
                         nothing is auto-selected for you.
@@ -143,17 +145,10 @@
                             <label>Model</label>
                             <select id="ml-dev-model" class="form-select"></select>
                         </div>
-                        <div class="form-group">
-                            <label>n_estimators <span class="hint">(tree ensembles)</span></label>
-                            <input type="number" id="ml-dev-n-estimators" class="form-select" placeholder="e.g. 100" min="10" max="1000">
-                        </div>
-                        <div class="form-group">
-                            <label>max_depth <span class="hint">(trees)</span></label>
-                            <input type="number" id="ml-dev-max-depth" class="form-select" placeholder="e.g. 8" min="1" max="100">
-                        </div>
+                        <div id="ml-dev-hyperparams"><!-- filled dynamically based on the selected model --></div>
                         <div class="form-check">
                             <input type="checkbox" id="ml-dev-scale">
-                            <label for="ml-dev-scale">Standardize features (recommended for SVM / KNN)</label>
+                            <label for="ml-dev-scale">Standardize features <span id="ml-dev-scale-hint" class="hint">(recommended for SVM / KNN)</span></label>
                         </div>
                     </div>
 

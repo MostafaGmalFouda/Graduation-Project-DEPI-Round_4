@@ -2,7 +2,99 @@
    BRight AI — Phase 5: ML Logic
    ============================================================ */
 
-const ML = { columns: [], guessedTarget: null, availableModels: {}, lastResult: null, recommendation: null, recommendedModel: null, predictSchema: null };
+const ML = { columns: [], guessedTarget: null, availableModels: {}, hyperparamSpecs: {}, lastResult: null, recommendation: null, recommendedModel: null, predictSchema: null, allFeatures: null };
+
+// Fetches the full logical feature schema (original names/categories/ranges
+// for every column in the dataset) ONCE and caches it, instead of asking the
+// server for a specific subset of columns via a long '?columns=a,b,c,...'
+// query string. With a wide one-hot encoded dataset that list can get long
+// enough to be silently truncated, which used to come back as "only some of
+// my original features show up". Fetching everything once and filtering
+// client-side removes that failure mode entirely.
+async function ensureFeatureSchema() {
+    if (ML.allFeatures) return ML.allFeatures;
+    try {
+        const res = await fetch("/ml/feature_schema");
+        const data = await res.json();
+        if (data.status === "success") {
+            ML.allFeatures = data.features;
+            return ML.allFeatures;
+        }
+    } catch (e) {
+        // fall through
+    }
+    return null;
+}
+
+function renderHyperparamControls(taskType, modelName) {
+    const container = document.getElementById("ml-dev-hyperparams");
+    if (!container) return;
+
+    const specs = (ML.hyperparamSpecs[taskType] && ML.hyperparamSpecs[taskType][modelName]) || [];
+
+    if (specs.length === 0) {
+        container.innerHTML = `<p class="hint" style="margin:6px 0 10px;">This model has no extra hyperparameters to tune.</p>`;
+    } else {
+        container.innerHTML = specs.map(spec => {
+            const inputId = `ml-hp-${spec.name}`;
+            if (spec.type === "select") {
+                const opts = spec.options.map(o =>
+                    `<option value="${o}" ${o === spec.default ? "selected" : ""}>${o}</option>`
+                ).join("");
+                return `
+                    <div class="form-group">
+                        <label>${spec.label}</label>
+                        <select id="${inputId}" class="form-select ml-hyperparam-input" data-name="${spec.name}" data-type="select">${opts}</select>
+                    </div>
+                `;
+            }
+            if (spec.type === "bool") {
+                return `
+                    <div class="form-check">
+                        <input type="checkbox" id="${inputId}" class="ml-hyperparam-input" data-name="${spec.name}" data-type="bool" ${spec.default ? "checked" : ""}>
+                        <label for="${inputId}">${spec.label}</label>
+                    </div>
+                `;
+            }
+            const step = spec.type === "float" ? (spec.step || 0.01) : (spec.step || 1);
+            const placeholder = (spec.default === null || spec.default === undefined) ? "auto" : spec.default;
+            return `
+                <div class="form-group">
+                    <label>${spec.label}</label>
+                    <input type="number" id="${inputId}" class="form-select ml-hyperparam-input"
+                        data-name="${spec.name}" data-type="${spec.type}"
+                        min="${spec.min ?? ""}" max="${spec.max ?? ""}" step="${step}" placeholder="e.g. ${placeholder}">
+                </div>
+            `;
+        }).join("");
+    }
+
+    // Gentle scaling nudge — informational only, never forces the choice.
+    const scaleHint = document.getElementById("ml-dev-scale-hint");
+    const scaleBox = document.getElementById("ml-dev-scale");
+    const benefitsFromScaling = ["svm", "knn", "logistic_regression"].includes(modelName);
+    if (scaleHint) {
+        scaleHint.textContent = benefitsFromScaling
+            ? "(recommended for this model)"
+            : "(usually not needed for tree-based models, but won't hurt)";
+    }
+    if (scaleBox) scaleBox.checked = benefitsFromScaling;
+}
+
+async function fetchTargetOptions(allColumns) {
+    const features = await ensureFeatureSchema();
+    if (!features) return null;
+    // A One-Hot group (column_by_category) can't serve as a single
+    // scalar target — only plain numeric or Label-Encoded columns can.
+    return features.filter(f => !f.column_by_category);
+}
+
+function populateTargetSelect(selectEl, options, allColumns) {
+    const list = options || allColumns.map(c => ({ name: c, clean_columns: [c] }));
+    selectEl.innerHTML =
+        `<option value="" selected disabled>-- Choose a target column --</option>` +
+        list.map(f => `<option value="${f.clean_columns[0]}">${f.name}</option>`).join("");
+}
 
 async function initML() {
     document.getElementById("mode-title").textContent =
@@ -22,21 +114,40 @@ async function initML() {
         ML.columns = data.columns;
         ML.guessedTarget = data.guessed_target;
         ML.availableModels = data.available_models;
+        ML.hyperparamSpecs = data.hyperparam_specs || {};
+
+        // Transparency: tell the person which of THEIR original uploaded
+        // columns are simply not present anymore (dropped upstream in
+        // Phase 1 — excluded, treated as an ID column, or dropped as
+        // high-cardinality free text) so a missing feature is never a
+        // silent mystery.
+        const missingNotice = document.getElementById("ml-missing-columns-notice");
+        if (missingNotice) {
+            if (data.missing_raw_columns && data.missing_raw_columns.length > 0) {
+                missingNotice.style.display = "block";
+                missingNotice.innerHTML = `<i class="fas fa-circle-info"></i> ${data.missing_raw_columns.length} of your original column(s) ` +
+                    `aren't available here because Phase 1 preprocessing removed them ` +
+                    `(excluded, treated as an ID column, or dropped as free text): ` +
+                    `<b>${data.missing_raw_columns.join(", ")}</b>. Every other original column is still here — ` +
+                    `just shown by its real name/categories, not the encoded values.`;
+            } else {
+                missingNotice.style.display = "none";
+            }
+        }
 
         document.getElementById("ml-workspace").style.display = "block";
 
         if (APP_MODE === "developer") {
             document.getElementById("ml-developer-mode").style.display = "block";
-            initDeveloperForm(data);
+            await initDeveloperForm(data);
         } else {
             document.getElementById("ml-user-mode").style.display = "block";
             document.getElementById("ml-meta-rows").textContent = `${data.rows} rows`;
             document.getElementById("ml-meta-cols").textContent = `${data.cols} columns`;
 
             const targetSelect = document.getElementById("ml-user-target");
-            targetSelect.innerHTML =
-                `<option value="" selected disabled>-- Choose a target column --</option>` +
-                data.columns.map(c => `<option value="${c}">${c}</option>`).join("");
+            const targetOptions = await fetchTargetOptions(data.columns);
+            populateTargetSelect(targetSelect, targetOptions, data.columns);
 
             const badge = document.getElementById("ml-guessed-badge");
             if (data.guessed_target) {
@@ -53,11 +164,10 @@ async function initML() {
     }
 }
 
-function initDeveloperForm(data) {
+async function initDeveloperForm(data) {
     const targetSelect = document.getElementById("ml-dev-target");
-    targetSelect.innerHTML =
-        `<option value="" selected disabled>-- Choose a target column --</option>` +
-        data.columns.map(c => `<option value="${c}">${c}</option>`).join("");
+    const targetOptions = await fetchTargetOptions(data.columns);
+    populateTargetSelect(targetSelect, targetOptions, data.columns);
 
     const devBadge = document.getElementById("ml-dev-guessed-badge");
     if (devBadge) {
@@ -74,17 +184,23 @@ function initDeveloperForm(data) {
     const taskSelect = document.getElementById("ml-dev-task");
     const modelSelect = document.getElementById("ml-dev-model");
 
+    function currentTask() {
+        return taskSelect.value || data.guessed_task_type;
+    }
+
     function refreshModelOptions() {
-        const task = taskSelect.value || data.guessed_task_type;
+        const task = currentTask();
         const models = ML.availableModels[task] || ML.availableModels.classification;
         modelSelect.innerHTML = models.map(m =>
             `<option value="${m}">${m.replace(/_/g, " ")}</option>`
         ).join("");
+        renderHyperparamControls(task, modelSelect.value);
     }
     taskSelect.addEventListener("change", refreshModelOptions);
+    modelSelect.addEventListener("change", () => renderHyperparamControls(currentTask(), modelSelect.value));
     refreshModelOptions();
 
-    function refreshFeatureChecklist() {
+    async function refreshFeatureChecklist() {
         const target = targetSelect.value;
         const container = document.getElementById("ml-dev-features");
 
@@ -96,35 +212,32 @@ function initDeveloperForm(data) {
         const candidateColumns = data.columns.filter(c => c !== target);
         container.innerHTML = `<p style="color:var(--txt-dim); font-size:12.5px;">Loading features…</p>`;
 
-        fetch(`/ml/feature_schema?columns=${encodeURIComponent(candidateColumns.join(","))}`)
-            .then(res => res.json())
-            .then(schemaData => {
-                const features = schemaData.status === "success" ? schemaData.features : null;
-                if (!features) {
-                    container.innerHTML = candidateColumns.map(c => `
-                        <label class="col-chip categorical" style="cursor:pointer;">
-                            <input type="checkbox" class="ml-feature-check" data-columns="${c}" checked style="margin-right:6px;">${c}
-                        </label>
-                    `).join("");
-                    return;
-                }
-                // One entry per ORIGINAL column — a One-Hot group (e.g.
-                // Gender_Male/Gender_Female) shows up once as "Gender",
-                // and checking/unchecking it toggles all its encoded columns.
-                container.innerHTML = features.map(f => `
-                    <label class="col-chip ${f.type}" style="cursor:pointer;">
-                        <input type="checkbox" class="ml-feature-check" data-columns="${f.clean_columns.join(",")}" checked style="margin-right:6px;">${f.name}
-                        ${f.type === "categorical" ? `<span class="hint">(${f.options.length} categories)</span>` : ""}
-                    </label>
-                `).join("");
-            })
-            .catch(() => {
-                container.innerHTML = candidateColumns.map(c => `
-                    <label class="col-chip categorical" style="cursor:pointer;">
-                        <input type="checkbox" class="ml-feature-check" data-columns="${c}" checked style="margin-right:6px;">${c}
-                    </label>
-                `).join("");
-            });
+        const allFeatures = await ensureFeatureSchema();
+
+        if (!allFeatures) {
+            container.innerHTML = candidateColumns.map(c => `
+                <label class="col-chip categorical" style="cursor:pointer;">
+                    <input type="checkbox" class="ml-feature-check" data-columns="${c}" checked style="margin-right:6px;">${c}
+                </label>
+            `).join("");
+            return;
+        }
+
+        // Every logical feature EXCEPT the one whose encoded column(s)
+        // include the chosen target — this is the full original feature
+        // set, not a server-side subset, so nothing is ever missing here
+        // just because a request happened to leave a column out.
+        const features = allFeatures.filter(f => !f.clean_columns.includes(target));
+
+        // One entry per ORIGINAL column — a One-Hot group (e.g.
+        // Gender_Male/Gender_Female) shows up once as "Gender",
+        // and checking/unchecking it toggles all its encoded columns.
+        container.innerHTML = features.map(f => `
+            <label class="col-chip ${f.type}" style="cursor:pointer;">
+                <input type="checkbox" class="ml-feature-check" data-columns="${f.clean_columns.join(",")}" checked style="margin-right:6px;">${f.name}
+                ${f.type === "categorical" ? `<span class="hint">(${f.options.length} categories)</span>` : ""}
+            </label>
+        `).join("");
     }
     targetSelect.addEventListener("change", refreshFeatureChecklist);
     refreshFeatureChecklist();
@@ -235,10 +348,14 @@ async function trainML(auto, modelName) {
         formData.append("test_size", document.getElementById("ml-dev-testsize").value);
         formData.append("scale", document.getElementById("ml-dev-scale").checked ? "true" : "false");
 
-        const nEst = document.getElementById("ml-dev-n-estimators").value;
-        if (nEst) formData.append("n_estimators", nEst);
-        const maxDepth = document.getElementById("ml-dev-max-depth").value;
-        if (maxDepth) formData.append("max_depth", maxDepth);
+        document.querySelectorAll(".ml-hyperparam-input").forEach(inp => {
+            const name = inp.dataset.name;
+            if (inp.dataset.type === "bool") {
+                formData.append(name, inp.checked ? "true" : "false");
+            } else if (inp.value !== "") {
+                formData.append(name, inp.value);
+            }
+        });
 
         document.querySelectorAll(".ml-feature-check:checked").forEach(cb => {
             cb.dataset.columns.split(",").forEach(col => formData.append("feature_columns", col));
@@ -322,14 +439,12 @@ async function renderPredictForm(featureColumns) {
     const predictForm = document.getElementById("ml-predict-form");
     predictForm.innerHTML = `<p style="color:var(--txt-dim); font-size:13px;">Loading feature info…</p>`;
 
-    let features = null;
-    try {
-        const res = await fetch(`/ml/feature_schema?columns=${encodeURIComponent(featureColumns.join(","))}`);
-        const schemaData = await res.json();
-        if (schemaData.status === "success") features = schemaData.features;
-    } catch (e) {
-        features = null;
-    }
+    const allFeatures = await ensureFeatureSchema();
+    // Scope the cached full schema down to whatever this particular
+    // trained model actually uses (its exact encoded feature_columns).
+    const features = allFeatures
+        ? allFeatures.filter(f => f.clean_columns.some(c => featureColumns.includes(c)))
+        : null;
 
     if (!features) {
         // Fallback: plain numeric inputs, same as before.

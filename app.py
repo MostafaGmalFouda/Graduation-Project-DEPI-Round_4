@@ -1168,6 +1168,15 @@ def ml_status():
     guessed_target = trainer.guess_target_column()
     task_type = trainer.detect_task_type(guessed_target)
 
+    # Transparency check: any ORIGINAL (as-uploaded) column that has no
+    # trace at all in the clean/encoded data was dropped upstream in Phase 1
+    # (excluded manually, dropped as an ID column, or dropped as
+    # high-cardinality free text) — not by anything in Phase 5. Surfacing
+    # this here means the person always knows why a feature they expect to
+    # see isn't in the target/feature pickers, instead of it just vanishing.
+    raw_df = get_raw_df()
+    missing_raw_columns = FeatureSchema.missing_raw_columns(raw_df, df) if raw_df is not None else []
+
     return jsonify({
         "status": "ready",
         "rows": df.shape[0],
@@ -1179,6 +1188,9 @@ def ml_status():
             "classification": ModelFactory.available_models("classification"),
             "regression": ModelFactory.available_models("regression"),
         },
+        "hyperparam_specs": ModelFactory.HYPERPARAM_SPECS,
+        "raw_column_count": len(raw_df.columns) if raw_df is not None else None,
+        "missing_raw_columns": missing_raw_columns,
     })
 
 
@@ -1212,12 +1224,22 @@ def ml_recommend():
 @app.route('/ml/feature_schema', methods=['GET'])
 def ml_feature_schema():
     """
-    Returns the ORIGINAL (pre-encoding) identity of the requested clean/
-    encoded columns — e.g. a One-Hot group like 'Gender_Male'/'Gender_Female'
-    collapses into one 'Gender' entry with ['Male', 'Female'] as options, and
-    a Label-Encoded column reports its real category names instead of codes.
-    Used by the Developer Mode feature checklist and the prediction form in
-    both modes, so people never have to read or type raw encoded values.
+    Returns the ORIGINAL (pre-encoding) identity of EVERY column in the
+    clean/encoded dataset — e.g. a One-Hot group like 'Gender_Male'/
+    'Gender_Female' collapses into one 'Gender' entry with ['Male',
+    'Female'] as options, and a Label-Encoded column reports its real
+    category names instead of codes. Used by the target picker, the
+    Developer Mode feature checklist, and the prediction form in both
+    modes, so people never have to read or type raw encoded values.
+
+    NOTE: this always computes the schema for ALL columns and ignores any
+    '?columns=' filter. Filtering used to happen server-side based on a
+    comma-separated column list built into the URL — with a wide one-hot
+    encoded dataset (many categorical columns each exploded into several
+    columns) that list can be long enough to be silently truncated by the
+    browser/an intermediary, which used to come back as "only some of my
+    features showed up". Returning everything and letting the frontend
+    narrow it down client-side removes that failure mode entirely.
     """
     clean_df = get_clean_df()
     if clean_df is None:
@@ -1225,13 +1247,9 @@ def ml_feature_schema():
 
     raw_df = get_raw_df()  # may be None on older sessions — schema falls back to numeric-only
 
-    columns_param = request.args.get("columns", "")
-    columns = [c for c in columns_param.split(",") if c] or list(clean_df.columns)
-    columns = [c for c in columns if c in clean_df.columns]
-
     try:
         schema = FeatureSchema.build(raw_df, clean_df)
-        features = FeatureSchema.to_logical_features(schema, columns)
+        features = FeatureSchema.to_logical_features(schema, list(clean_df.columns))
         return jsonify({"status": "success", "features": features})
     except Exception as e:
         print("Feature Schema Error:", e)
@@ -1267,22 +1285,25 @@ def ml_train():
             test_size = float(data.get("test_size", 0.2))
             scale = data.get("scale", "false") == "true"
 
-            hyperparams = {}
-            n_estimators = data.get("n_estimators")
-            if n_estimators:
-                hyperparams["n_estimators"] = int(n_estimators)
-            max_depth = data.get("max_depth")
-            if max_depth:
-                hyperparams["max_depth"] = int(max_depth)
-            n_neighbors = data.get("n_neighbors")
-            if n_neighbors:
-                hyperparams["n_neighbors"] = int(n_neighbors)
-            c_param = data.get("C")
-            if c_param:
-                hyperparams["C"] = float(c_param)
-
             if not target_column:
                 return jsonify({"status": "error", "message": "Please choose a target column first."}), 400
+
+            resolved_task_type = task_type or pipeline.trainer.detect_task_type(target_column)
+            spec = ModelFactory.hyperparam_spec(resolved_task_type, model_name)
+
+            hyperparams = {}
+            for field in spec:
+                raw_val = data.get(field["name"])
+                if raw_val in (None, ""):
+                    continue
+                if field["type"] == "int":
+                    hyperparams[field["name"]] = int(raw_val)
+                elif field["type"] == "float":
+                    hyperparams[field["name"]] = float(raw_val)
+                elif field["type"] == "bool":
+                    hyperparams[field["name"]] = raw_val == "true"
+                else:  # select / string options e.g. kernel, weights
+                    hyperparams[field["name"]] = raw_val
 
             result = pipeline.run_manual(
                 target_column=target_column,
@@ -1336,6 +1357,29 @@ def ml_predict():
     try:
         predictor = Predictor.from_file(model_path)
         prediction = predictor.predict_row(row)
+
+        # De-encode the prediction back to the ORIGINAL target label — e.g.
+        # a Label-Encoded target trained as 0/1 should come back as "No"/"Yes",
+        # never as the raw numeric code the model actually predicted.
+        if predictor.task_type == "classification":
+            raw_df = get_raw_df()
+            clean_df = get_clean_df()
+            if raw_df is not None and clean_df is not None and predictor.target_column in clean_df.columns:
+                schema = FeatureSchema.build(raw_df, clean_df)
+                target_info = schema.get(predictor.target_column)
+                if target_info and target_info["type"] == "categorical_label":
+                    value_map = target_info["value_map"]  # encoded code (str) -> original label
+                    raw_pred = prediction["prediction"]
+                    if isinstance(raw_pred, float) and raw_pred.is_integer():
+                        key = str(int(raw_pred))
+                    else:
+                        key = str(raw_pred)
+                    if key in value_map:
+                        prediction["prediction"] = value_map[key]
+                    if "probabilities" in prediction:
+                        prediction["probabilities"] = {
+                            value_map.get(k, k): v for k, v in prediction["probabilities"].items()
+                        }
 
         ctx = get_chat_context()
         ctx.log_prediction({"type": "single_prediction", **prediction, "input": row})
