@@ -257,7 +257,7 @@ body:has(#sidebar.collapsed) #content-area {
 #mode-select-screen {
     width: 100%;
     max-width: auto;
-    margin:0 330px 100px 100px;
+    margin:0 100px 100px 100px;
     padding:50px 50px;
     text-align: center;
 }

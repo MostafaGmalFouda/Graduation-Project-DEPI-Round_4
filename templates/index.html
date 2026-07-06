@@ -33,103 +33,20 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/pipeline_style.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/app_shell.css') }}">
 
-    <style>
-        /* Custom styles to handle initial sidebar visibility */
-        #sidebar.initially-hidden {
-            display: none !important;
-        }
-    </style>
 </head>
 {% include "components/chatbot.html" %}
 
 <link rel="stylesheet" href="{{ url_for('static',filename='css/chatbot.css') }}">
 
-<body style="overflow: hidden;">
-
-    <!-- ==================== INTRO / BOOT SCREEN ==================== -->
-    <div id="intro-screen">
-        <div class="nebula-bg">
-            <div class="orb orb-1"></div>
-            <div class="orb orb-2"></div>
-            <div class="orb orb-3"></div>
-        </div>
-        <div class="cyber-grid"></div>
-
-        <div class="intro-content">
-            <div class="intro-logo-container">
-                <h1 class="intro-logo">BRight <span>AI</span></h1>
-                <div class="logo-shine"></div>
-            </div>
-
-            <!-- Loading Animation -->
-            <div class="loader-v2">
-                <div class="progress-wrapper">
-                    <div class="progress-line"></div>
-                </div>
-                <div class="status-scanner">
-                    <span class="status-text">SYSTEM BOOTING...</span>
-                    <span class="percentage" id="load-pc">0%</span>
-                </div>
-            </div>
-        </div>
-    </div>
+<body style="overflow: auto;" data-initial-mode="{{ mode|default('user') }}">
 
     <!-- Global Error Message Container -->
     <div id="error-message" class="error-message" style="display: none;"></div>
 
     <div id="content-area">
 
-        <!-- ==================== MODE SELECTION SCREEN ==================== -->
-        <div id="mode-select-screen" style="display: none; opacity: 0; transition: opacity 0.6s ease;">
-            <div class="mobile-sidebar-toggle" id="mobile-sidebar-toggle-hero" style="margin: 0 auto 24px;">
-                <i class="fas fa-bars"></i>
-            </div>
-            <div class="mode-select-logo">BRight <span>AI</span></div>
-            <p class="mode-select-sub">Exploratory Data Analysis Platform — choose how much control you want over your
-                pipeline.</p>
-
-            <div class="mode-cards">
-                <!-- User Mode Card -->
-                <div class="mode-card user-card" id="select-user-mode">
-                    <div class="mode-card-icon"><i class="fas fa-bolt"></i></div>
-                    <div class="mode-tag">User Mode</div>
-                    <h2>Automated Intelligence</h2>
-                    <p class="mode-desc">
-                        One-click AI-driven pipeline for instant insights. Upload your data and
-                        let BRight AI handle validation, preprocessing, and reporting using
-                        optimized defaults.
-                    </p>
-                    <ul>
-                        <li>Smart type detection</li>
-                        <li>Automated cleaning</li>
-                        <li>Instant visualizations</li>
-                    </ul>
-                    <div class="mode-card-cta"><i class="fas fa-arrow-right"></i> Start Automated</div>
-                </div>
-
-                <!-- Developer Mode Card -->
-                <div class="mode-card dev-select-card" id="select-dev-mode">
-                    <div class="mode-card-icon"><i class="fas fa-code"></i></div>
-                    <div class="mode-tag">Developer Mode</div>
-                    <h2>Granular Control</h2>
-                    <p class="mode-desc">
-                        Full control workspace for technical users. Tune null-handling,
-                        outlier detection, encoding, and column selection — every stage of
-                        the pipeline is yours to configure.
-                    </p>
-                    <ul>
-                        <li>9 configurable pipeline parameters</li>
-                        <li>IQR / Z-Score with custom threshold</li>
-                        <li>Column exclusion & encoding control</li>
-                    </ul>
-                    <div class="mode-card-cta"><i class="fas fa-arrow-right"></i> Open Workspace</div>
-                </div>
-            </div>
-        </div>
-
         <!-- ==================== MAIN APPLICATION ==================== -->
-        <div id="main-app" class="app-stage" style="display: none; opacity: 0;" data-aos="fade-up"
-            data-aos-duration="1000">
+        <div id="main-app" class="app-stage" data-aos="fade-up" data-aos-duration="1000">
            <br>
 
             <!-- Top Mode Bar (shared partial — identical markup/ids on every page) -->
@@ -595,90 +512,6 @@
             pipeResults.scrollIntoView({ behavior: 'smooth' });
         }
 
-        // ==========================================
-        // Intro Animation & Boot Loader
-        // ==========================================
-        const loadingSteps = [
-            "INITIALIZING CORE...",
-            "LOADING NEURAL MATRIX...",
-            "CALIBRATING DATA ENGINE...",
-            "MOUNTING AI MODULES...",
-            "SYSTEM READY"
-        ];
-        window.addEventListener('load', () => {
-            const counterElement = document.getElementById('load-pc');
-            const statusText = document.querySelector('.status-text');
-            let count = 0, stepIdx = 0;
-
-            const loaderInterval = setInterval(() => {
-                count++;
-                if (counterElement) counterElement.innerText = count + "%";
-                const milestone = Math.floor(count / 20);
-                if (milestone !== stepIdx && milestone < loadingSteps.length) {
-                    stepIdx = milestone;
-                    if (statusText) {
-                        statusText.style.opacity = '0';
-                        setTimeout(() => {
-                            statusText.innerText = loadingSteps[stepIdx];
-                            statusText.style.opacity = '1';
-                        }, 200);
-                    }
-                }
-                if (count === 100) clearInterval(loaderInterval);
-            }, 38);
-
-            setTimeout(() => {
-                const intro = document.getElementById('intro-screen');
-                intro.style.transition = 'opacity 0.6s ease';
-                intro.style.opacity = '0';
-                const modeSelect = document.getElementById('mode-select-screen');
-                modeSelect.style.display = 'block';
-                setTimeout(() => {
-                    modeSelect.style.opacity = '1';
-                    document.body.style.overflow = 'auto';
-                    intro.remove();
-                }, 600);
-            }, 4200);
-
-            const userCard = document.getElementById('select-user-mode');
-            const devCard = document.getElementById('select-dev-mode');
-
-            if (userCard) {
-                userCard.addEventListener('click', async () => {
-
-                    // Save User Mode in Flask Session
-                    await fetch("/set-mode", {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json"
-                        },
-                        body: JSON.stringify({
-                            mode: "user"
-                        })
-                    });
-
-                    sidebar.classList.remove('initially-hidden');
-                });
-            }
-
-            if (devCard) {
-                devCard.addEventListener('click', async () => {
-
-                    // Save Developer Mode in Flask Session
-                    await fetch("/set-mode", {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json"
-                        },
-                        body: JSON.stringify({
-                            mode: "developer"
-                        })
-                    });
-
-                    sidebar.classList.remove('initially-hidden');
-                });
-            }
-        });
     </script>
     <script src="{{ url_for('static', filename='scripts/chatbot.js') }}"></script>
 </body>

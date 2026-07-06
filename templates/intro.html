@@ -1,11 +1,12 @@
 <!DOCTYPE html>
 <!--
     ================================================
-    BRight | AI Data Hub - Landing Page
-    Intro boot animation + Mode selection ONLY.
-    This page never shows the EDA workspace itself —
-    picking a mode here navigates to /index.
+    BRight | AI Data Hub - Boot / Mode Select Page
     ================================================
+    This page is ONLY the intro animation + mode selection gate.
+    It is served at '/'. Once a mode is chosen it is saved via
+    /set-mode and the browser is redirected to /eda, which is the
+    real EDA workspace (former main-app), served on its own route.
 -->
 
 <html lang="en">
@@ -16,9 +17,13 @@
 
     <title>BRight | AI Data Hub</title>
 
+    <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Font Awesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 
+    <!-- Project CSS Files (reused so the intro/mode-select visuals match the app) -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/app_shell.css') }}">
 </head>
@@ -53,56 +58,49 @@
         </div>
     </div>
 
-    <!-- Global Error Message Container -->
-    <div id="error-message" class="error-message" style="display: none;"></div>
+    <!-- ==================== MODE SELECTION SCREEN ==================== -->
+    <div id="mode-select-screen" style="display: none; opacity: 0; transition: opacity 0.6s ease;">
+        <div class="mode-select-logo">BRight <span>AI</span></div>
+        <p class="mode-select-sub">Exploratory Data Analysis Platform — choose how much control you want over your
+            pipeline.</p>
 
-    <div id="content-area">
+        <div class="mode-cards">
+            <!-- User Mode Card -->
+            <div class="mode-card user-card" id="select-user-mode">
+                <div class="mode-card-icon"><i class="fas fa-bolt"></i></div>
+                <div class="mode-tag">User Mode</div>
+                <h2>Automated Intelligence</h2>
+                <p class="mode-desc">
+                    One-click AI-driven pipeline for instant insights. Upload your data and
+                    let BRight AI handle validation, preprocessing, and reporting using
+                    optimized defaults.
+                </p>
+                <ul>
+                    <li>Smart type detection</li>
+                    <li>Automated cleaning</li>
+                    <li>Instant visualizations</li>
+                </ul>
+                <div class="mode-card-cta"><i class="fas fa-arrow-right"></i> Start Automated</div>
+            </div>
 
-        <!-- ==================== MODE SELECTION SCREEN ==================== -->
-        <div id="mode-select-screen" style="display: none; opacity: 0; transition: opacity 0.6s ease;">
-            <div class="mode-select-logo">BRight <span>AI</span></div>
-            <p class="mode-select-sub">Exploratory Data Analysis Platform — choose how much control you want over your
-                pipeline.</p>
-
-            <div class="mode-cards">
-                <!-- User Mode Card -->
-                <div class="mode-card user-card" id="select-user-mode">
-                    <div class="mode-card-icon"><i class="fas fa-bolt"></i></div>
-                    <div class="mode-tag">User Mode</div>
-                    <h2>Automated Intelligence</h2>
-                    <p class="mode-desc">
-                        One-click AI-driven pipeline for instant insights. Upload your data and
-                        let BRight AI handle validation, preprocessing, and reporting using
-                        optimized defaults.
-                    </p>
-                    <ul>
-                        <li>Smart type detection</li>
-                        <li>Automated cleaning</li>
-                        <li>Instant visualizations</li>
-                    </ul>
-                    <div class="mode-card-cta"><i class="fas fa-arrow-right"></i> Start Automated</div>
-                </div>
-
-                <!-- Developer Mode Card -->
-                <div class="mode-card dev-select-card" id="select-dev-mode">
-                    <div class="mode-card-icon"><i class="fas fa-code"></i></div>
-                    <div class="mode-tag">Developer Mode</div>
-                    <h2>Granular Control</h2>
-                    <p class="mode-desc">
-                        Full control workspace for technical users. Tune null-handling,
-                        outlier detection, encoding, and column selection — every stage of
-                        the pipeline is yours to configure.
-                    </p>
-                    <ul>
-                        <li>9 configurable pipeline parameters</li>
-                        <li>IQR / Z-Score with custom threshold</li>
-                        <li>Column exclusion & encoding control</li>
-                    </ul>
-                    <div class="mode-card-cta"><i class="fas fa-arrow-right"></i> Open Workspace</div>
-                </div>
+            <!-- Developer Mode Card -->
+            <div class="mode-card dev-select-card" id="select-dev-mode">
+                <div class="mode-card-icon"><i class="fas fa-code"></i></div>
+                <div class="mode-tag">Developer Mode</div>
+                <h2>Granular Control</h2>
+                <p class="mode-desc">
+                    Full control workspace for technical users. Tune null-handling,
+                    outlier detection, encoding, and column selection — every stage of
+                    the pipeline is yours to configure.
+                </p>
+                <ul>
+                    <li>9 configurable pipeline parameters</li>
+                    <li>IQR / Z-Score with custom threshold</li>
+                    <li>Column exclusion & encoding control</li>
+                </ul>
+                <div class="mode-card-cta"><i class="fas fa-arrow-right"></i> Open Workspace</div>
             </div>
         </div>
-
     </div>
 
     <script>
@@ -151,30 +149,25 @@
                     intro.remove();
                 }, 600);
             }, 4200);
+        });
 
-            // ==========================================
-            // Mode selection -> save mode, then go to the
-            // EDA workspace page (a separate page/route).
-            // ==========================================
-            const userCard = document.getElementById('select-user-mode');
-            const devCard = document.getElementById('select-dev-mode');
-
-            async function chooseMode(mode) {
+        // ==========================================
+        // Mode Selection → save mode → go to /eda
+        // ==========================================
+        async function chooseMode(mode) {
+            try {
                 await fetch("/set-mode", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ mode })
+                    body: JSON.stringify({ mode: mode })
                 });
-                window.location.href = "/index";
+            } finally {
+                window.location.href = "/eda";
             }
+        }
 
-            if (userCard) {
-                userCard.addEventListener('click', () => chooseMode('user'));
-            }
-            if (devCard) {
-                devCard.addEventListener('click', () => chooseMode('developer'));
-            }
-        });
+        document.getElementById('select-user-mode').onclick = () => chooseMode('user');
+        document.getElementById('select-dev-mode').onclick = () => chooseMode('developer');
     </script>
 </body>
 

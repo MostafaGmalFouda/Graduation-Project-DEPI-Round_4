@@ -4,25 +4,11 @@
 ===================================================================== */
 
 // ── Mode state ──────────────────────────────────────────────────────────
-let currentMode = 'user'; // 'user' | 'developer'
-
-function enterApp(mode) {
-    currentMode = mode;
-    const modeSelect = document.getElementById('mode-select-screen');
-    const mainApp    = document.getElementById('main-app');
-
-    modeSelect.style.opacity = '0';
-    setTimeout(() => {
-        modeSelect.style.display = 'none';
-        mainApp.style.display = 'block';
-        requestAnimationFrame(() => {
-            mainApp.style.transition = 'opacity 0.6s ease';
-            mainApp.style.opacity = '1';
-        });
-    }, 500);
-
-    applyModeUI(mode);
-}
+// Mode selection itself now happens on the separate intro page ('/'), which
+// saves it via /set-mode and redirects here to /eda. This page just reads
+// back whatever was chosen (rendered server-side into data-initial-mode)
+// and applies the matching UI immediately — no fade-in gate needed anymore.
+let currentMode = document.body.dataset.initialMode === 'developer' ? 'developer' : 'user';
 
 function setBodyModeClass(mode) {
     document.body.classList.remove('mode-user', 'mode-developer');
@@ -60,8 +46,8 @@ function applyModeUI(mode) {
     }
 }
 
-document.getElementById('select-user-mode').onclick = () => enterApp('user');
-document.getElementById('select-dev-mode').onclick  = () => enterApp('developer');
+// Apply the mode UI (dev panel, pill, labels) as soon as the shell loads.
+applyModeUI(currentMode);
 
 async function saveMode(mode) {
     await fetch("/set-mode", {

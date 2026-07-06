@@ -289,7 +289,23 @@ def describe_dataset_highlights(df: pd.DataFrame) -> str:
 
 @app.route('/')
 def index():
-    return render_template('index.html', active_page='eda', hide_sidebar_initially=True)
+    """
+    Boot/mode-select gate — the very first thing shown when the app opens.
+    Just the intro animation + User/Developer mode cards. Choosing a mode
+    saves it via /set-mode and redirects the browser to /eda.
+    """
+    return render_template('intro.html')
+
+
+@app.route('/eda')
+def eda():
+    """
+    The real EDA workspace (former main-app). Reached only after the
+    intro/mode-select gate at '/'. Sidebar is shown from the start since
+    the mode has already been chosen by this point.
+    """
+    mode = session.get('mode', 'user')
+    return render_template('index.html', active_page='eda', mode=mode)
 
 
 @app.route('/process', methods=['POST'])
