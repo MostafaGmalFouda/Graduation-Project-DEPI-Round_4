@@ -92,6 +92,49 @@ def get_raw_df() -> pd.DataFrame:
     return load_session_df(path)
 
 
+# ── Data purpose helpers (drives text-column cleaning + Phase locking) ───────
+
+def get_data_purpose() -> str:
+    """
+    The purpose chosen on the intro/EDA card ('general' | 'ml' | 'nlp'),
+    persisted at pipeline-run time. This is NOT a Developer Mode knob — it's
+    collected in both modes because it decides how free-text columns get
+    cleaned during Phase 1 (encoded away for ML vs. kept as real text for NLP).
+    """
+    purpose = session.get('data_purpose', 'general')
+    return purpose if purpose in ('general', 'ml', 'nlp') else 'general'
+
+
+def purpose_lock_check(target: str):
+    """
+    Returns a human-readable lock message if `target` ('nlp' or 'ml') should
+    be LOCKED given how the current dataset was actually processed, or None
+    if it's unlocked and safe to use.
+
+    Why: choosing "ML" as the data purpose fully encodes/removes free-text
+    columns during Phase 1, so the NLP page would have nothing real left to
+    analyze. Choosing "NLP" keeps text columns raw/unencoded, so the ML page
+    can't train on them as-is. 'general' never locks either page.
+    """
+    purpose = get_data_purpose()
+    if purpose == 'general':
+        return None
+
+    if target == 'nlp' and purpose == 'ml':
+        return ("This dataset was processed for Machine Learning, so free-text "
+                "columns were encoded into numbers and are no longer available "
+                "for NLP analysis. Re-run Phase 1 and set the data purpose to "
+                "'NLP / Text Analysis' to unlock this page.")
+
+    if target == 'ml' and purpose == 'nlp':
+        return ("This dataset was processed for NLP, so text columns were kept "
+                "as raw text instead of being encoded for model training. "
+                "Re-run Phase 1 and set the data purpose to 'Machine Learning' "
+                "to unlock this page.")
+
+    return None
+
+
 # ── Chat context helpers (per-session, isolates users from each other) ───────
 
 def get_session_id() -> str:
@@ -133,6 +176,11 @@ def clear_session_data():
             except OSError:
                 pass
     session['pipeline_done'] = False
+    # A fresh dataset means the previous data_purpose lock no longer applies —
+    # whatever purpose gets chosen on the NEXT pipeline run should decide
+    # which of /nlp or /ml stays unlocked, not a purpose left over from a
+    # dataset that no longer exists.
+    session.pop('data_purpose', None)
     chatbot.forget(get_session_id())
 
 
@@ -402,6 +450,14 @@ def pipeline_stream():
     session BEFORE returning the Response, and pass the clean_path
     into the generator via a closure variable — not via session.
 
+    Collected in BOTH modes (not a Developer Mode knob):
+        data_purpose          general|ml|nlp           default general
+            → 'nlp' forces text_action='keep' so free-text columns survive
+              cleaning; 'ml'/'general' fall back to the developer/default
+              text_action ('drop'). Also persisted to session['data_purpose']
+              so /nlp and /ml can lock themselves out when the dataset was
+              cleaned for the other purpose (see purpose_lock_check()).
+
     Developer Mode (optional form fields — all default to the original
     automatic User Mode behavior when absent):
         null_threshold        float  0.0–1.0          default 0.4
@@ -452,7 +508,21 @@ def pipeline_stream():
     exclude_columns = [c.strip() for c in exclude_columns_raw.split(',') if c.strip()]
 
      
-    text_action           = _choice('text_action', ('drop','hash','keep'), 'drop')
+    # ── Data purpose (general | ml | nlp) ───────────────────────────────────
+    # Not a Developer Mode knob — collected in both modes from the "What will
+    # you mainly use this dataset for?" selector. It decides how free-text
+    # columns get cleaned:
+    #   ml      → text columns get fully dropped/encoded away (old default)
+    #   nlp     → text columns are KEPT as real, readable text
+    #   general → same as ml (safe default when the person isn't sure yet)
+    data_purpose = request.form.get('data_purpose', 'general')
+    if data_purpose not in ('general', 'ml', 'nlp'):
+        data_purpose = 'general'
+
+    if data_purpose == 'nlp':
+        text_action = 'keep'
+    else:
+        text_action = _choice('text_action', ('drop', 'hash', 'keep'), 'drop')
     text_unique_threshold = _float('text_unique_threshold', 0.6, 0.0, 1.0)
 
     encoding_method = request.form.get('encoding_method', 'none')
@@ -501,6 +571,10 @@ def pipeline_stream():
     clean_path = os.path.join(SESSION_DATA_FOLDER, clean_fname)
     session['clean_df_path'] = clean_path
     session['pipeline_done'] = False
+    # Lock in the purpose for THIS clean dataset — /nlp and /ml check this on
+    # every request so a page whose columns were cleaned away for the other
+    # purpose stays locked until Phase 1 is re-run with a matching purpose.
+    session['data_purpose'] = data_purpose
 
     # ── Snapshot the ORIGINAL column schema (num/cat) from the RAW data ────
     # This must happen BEFORE type conversion / encoding, since those steps
@@ -1044,13 +1118,24 @@ def chat():
 @app.route('/nlp')
 def nlp_page():
     mode = session.get("mode", "user")
-    return render_template("nlp_ui.html", mode=mode, active_page='nlp')
+    lock_message = purpose_lock_check('nlp')
+    return render_template(
+        "nlp_ui.html",
+        mode=mode,
+        active_page='nlp',
+        locked=bool(lock_message),
+        lock_message=lock_message,
+    )
 
 
 @app.route('/nlp/status', methods=['GET'])
 def nlp_status():
     """Returns candidate text columns from the RAW dataset (free text is
     usually stripped/encoded away by the Phase 1 clean pipeline)."""
+    lock_message = purpose_lock_check('nlp')
+    if lock_message:
+        return jsonify({"status": "locked", "message": lock_message})
+
     df = get_raw_df()
     if df is None:
         df = get_clean_df()
@@ -1071,6 +1156,10 @@ def nlp_status():
 
 @app.route('/nlp/analyze', methods=['POST'])
 def nlp_analyze():
+    lock_message = purpose_lock_check('nlp')
+    if lock_message:
+        return jsonify({"status": "locked", "message": lock_message})
+
     data = request.form
     text_column = data.get("text_column")
     if not text_column:
@@ -1171,11 +1260,22 @@ def nlp_download(filename):
 @app.route('/ml')
 def ml_page():
     mode = session.get("mode", "user")
-    return render_template("ml_ui.html", mode=mode, active_page='ml')
+    lock_message = purpose_lock_check('ml')
+    return render_template(
+        "ml_ui.html",
+        mode=mode,
+        active_page='ml',
+        locked=bool(lock_message),
+        lock_message=lock_message,
+    )
 
 
 @app.route('/ml/status', methods=['GET'])
 def ml_status():
+    lock_message = purpose_lock_check('ml')
+    if lock_message:
+        return jsonify({"status": "locked", "message": lock_message})
+
     df = get_clean_df()
     if df is None:
         return jsonify({"status": "no_data"})
@@ -1219,6 +1319,10 @@ def ml_recommend():
     card and lets the person accept it or choose a different candidate
     before /ml/train actually trains anything.
     """
+    lock_message = purpose_lock_check('ml')
+    if lock_message:
+        return jsonify({"status": "locked", "message": lock_message})
+
     df = get_clean_df()
     if df is None:
         return jsonify({"status": "error", "message": "No preprocessed data available. Run Phase 1 first."}), 400
@@ -1257,6 +1361,10 @@ def ml_feature_schema():
     features showed up". Returning everything and letting the frontend
     narrow it down client-side removes that failure mode entirely.
     """
+    lock_message = purpose_lock_check('ml')
+    if lock_message:
+        return jsonify({"status": "locked", "message": lock_message})
+
     clean_df = get_clean_df()
     if clean_df is None:
         return jsonify({"status": "error", "message": "No preprocessed data available. Run Phase 1 first."}), 400
@@ -1274,6 +1382,10 @@ def ml_feature_schema():
 
 @app.route('/ml/train', methods=['POST'])
 def ml_train():
+    lock_message = purpose_lock_check('ml')
+    if lock_message:
+        return jsonify({"status": "locked", "message": lock_message})
+
     df = get_clean_df()
     if df is None:
         return jsonify({"status": "error", "message": "No preprocessed data available. Run Phase 1 first."}), 400

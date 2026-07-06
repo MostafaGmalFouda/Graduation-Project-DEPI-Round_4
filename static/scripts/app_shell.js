@@ -187,9 +187,19 @@ function syncExcludeColumnsInput() {
 setupPillGroup('encoding-method-group', 'encoding-method-input');
 
 // ── Collect all Developer Mode params for the pipeline stream ──────────
+// `data_purpose` is collected regardless of mode — it's not a "developer"
+// knob, it's a basic question ("is this data for NLP or ML?") that
+// changes how text columns are cleaned, and needs to reach the backend
+// even when the rest of the developer panel is hidden.
 function getDevPipelineParams() {
-    if (currentMode !== 'developer') return null;
+    const purposeSelect = document.getElementById('data-purpose-select');
+    const dataPurpose = purposeSelect ? purposeSelect.value : 'general';
+
+    if (currentMode !== 'developer') {
+        return { data_purpose: dataPurpose };
+    }
     return {
+        data_purpose: dataPurpose,
         null_threshold: nullSlider ? nullSlider.value : '0.4',
         null_fill_strategy: document.getElementById('null-fill-strategy-input').value,
         outlier_method: document.getElementById('outlier-method-input').value,
@@ -201,6 +211,7 @@ function getDevPipelineParams() {
         encoding_method: document.getElementById('encoding-method-input').value,
     };
 }
+
 
 
 // ═══════════════════════════════════════════════════════════════════════

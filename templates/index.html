@@ -105,6 +105,22 @@
                         </select>
                     </div>
 
+                    <div class="field-group">
+                        <label>What will you mainly use this dataset for?</label>
+                        <select name="data_purpose" id="data-purpose-select">
+                            <option value="general" selected>General / Not sure yet</option>
+                            <option value="ml">Machine Learning (numeric model training)</option>
+                            <option value="nlp">NLP / Text Analysis (reviews, comments...)</option>
+                        </select>
+                        <div class="dev-hint" style="margin-top:6px;">
+                            ML fully encodes text columns into numbers so models can train on them.
+                            NLP needs those same columns kept as real, readable text — pick NLP and
+                            BRight AI will preserve any free-text column instead of encoding it away.
+                        </div>
+                    </div>
+                     
+
+
                     <!-- Developer Controls -->
                     <div id="dev-controls-panel">
                         <p>Developer Controls Area</p>
