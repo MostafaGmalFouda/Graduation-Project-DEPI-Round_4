@@ -28,9 +28,11 @@
 
     <div id="content-area">
     <div class="phase2-stage">
+ <br>
+        <br>
+    {% include "components/mode_bar.html" %}
 
         <div class="phase2-header">
-            <a href="/" class="back-link"><i class="fas fa-arrow-left"></i> Back to Phase 1</a>
             <div class="logo-top">BRight <span>AI</span></div>
             <p id="mode-title">Loading Mode...</p>
         </div>
@@ -395,7 +397,7 @@
 
             <!-- Expose mode to phase2_logic.js BEFORE it loads -->
             <script>
-                const APP_MODE = "{{ mode }}";
+                let APP_MODE = "{{ mode }}";
             </script>
             <!-- Phase 2 Logic Script -->
             <script src="{{ url_for('static', filename='scripts/phase2_logic.js') }}"></script>
@@ -405,21 +407,33 @@
     </div><!-- /phase2-stage -->
     </div>
     <script>
-        async function initPhase2() {
-            const mode = "{{ mode }}";
-
+        // Just flips which panel is visible + the mode-title text. The FIRST
+        // time either mode is shown, its heavy setup runs once (auto
+        // dashboard generation for User Mode; upload zone/tabs/session-load
+        // for Developer Mode) and is cached — flipping back and forth after
+        // that is instant and never re-fetches or wipes anything.
+        function applyPhase2ModeUI(mode) {
+            APP_MODE = mode;
             document.getElementById("mode-title").textContent =
                 mode === "user" ? "User Mode — Automatic Dashboard" : "Developer Mode — Full Control";
+            document.getElementById("user-mode").style.display = mode === "user" ? "block" : "none";
+            document.getElementById("developer-mode").style.display = mode === "user" ? "none" : "block";
 
-            if (mode === "user") {
-                document.getElementById("user-mode").style.display = "block";
+            if (mode === "user" && !Phase2.userDashboardLoaded) {
+                Phase2.userDashboardLoaded = true;
                 loadAutomaticDashboard();
-            } else {
-                document.getElementById("developer-mode").style.display = "block";
+            }
+            if (mode === "developer" && !Phase2.devWorkspaceInitialized) {
+                Phase2.devWorkspaceInitialized = true;
                 initUploadZone();
                 initTabs();
                 tryLoadFromSession();
             }
+        }
+        window.applyPageMode = applyPhase2ModeUI;
+
+        async function initPhase2() {
+            applyPhase2ModeUI(APP_MODE);
         }
 
         async function loadAutomaticDashboard() {
@@ -453,6 +467,7 @@
     </script>
     <script src="{{ url_for('static', filename='scripts/chatbot.js') }}"></script>
     <script src="{{ url_for('static', filename='scripts/sidebar_shell.js') }}"></script>
+    <script src="{{ url_for('static', filename='scripts/mode_bar.js') }}"></script>
 
 
 </body>

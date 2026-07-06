@@ -130,27 +130,10 @@
         <!-- ==================== MAIN APPLICATION ==================== -->
         <div id="main-app" class="app-stage" style="display: none; opacity: 0;" data-aos="fade-up"
             data-aos-duration="1000">
+           <br>
 
-            <!-- Top Mode Bar -->
-            <div class="top-modebar">
-                <div class="top-modebar-brand">
-                    <div class="mobile-sidebar-toggle" id="mobile-sidebar-toggle-app">
-                        <i class="fas fa-bars"></i>
-                    </div>
-                    <span class="brand-name">BRight <span>AI</span></span>
-                    <span class="brand-tag">EDA Platform</span>
-                    <span class="current-mode-pill user-pill" id="current-mode-pill">
-                        <i class="fas fa-bolt"></i> <span id="current-mode-text">User Mode</span>
-                    </span>
-                </div>
-                <div class="mode-toggle-group">
-                    <span class="mode-toggle-label user-side is-active" id="label-user-side">User Mode</span>
-                    <div class="mode-switch" id="mode-switch">
-                        <div class="mode-switch-knob"><i class="fas fa-bolt"></i></div>
-                    </div>
-                    <span class="mode-toggle-label dev-side" id="label-dev-side">Developer Mode</span>
-                </div>
-            </div>
+            <!-- Top Mode Bar (shared partial — identical markup/ids on every page) -->
+            {% include "components/mode_bar.html" %}
 
             <!-- Hero Section -->
             <header class="hero-section">

@@ -96,11 +96,42 @@ function populateTargetSelect(selectEl, options, allColumns) {
         list.map(f => `<option value="${f.clean_columns[0]}">${f.name}</option>`).join("");
 }
 
-async function initML() {
+async function setupUserTargetUI(data) {
+    document.getElementById("ml-meta-rows").textContent = `${data.rows} rows`;
+    document.getElementById("ml-meta-cols").textContent = `${data.cols} columns`;
+
+    const targetSelect = document.getElementById("ml-user-target");
+    const targetOptions = await fetchTargetOptions(data.columns);
+    populateTargetSelect(targetSelect, targetOptions, data.columns);
+
+    const badge = document.getElementById("ml-guessed-badge");
+    if (data.guessed_target) {
+        badge.textContent = `Suggested: ${data.guessed_target} (click to use)`;
+        badge.style.display = "inline-block";
+        badge.style.cursor = "pointer";
+        badge.onclick = () => { targetSelect.value = data.guessed_target; };
+    } else {
+        badge.style.display = "none";
+    }
+}
+
+// Just flips which panel is visible + the mode-title text. No data fetching
+// here on purpose — both the User Mode and Developer Mode forms are fully
+// initialized once up front (see initML below), so switching modes is
+// instant and never wipes/re-fetches anything the person already set up.
+function applyMLModeUI(mode) {
+    APP_MODE = mode;
     document.getElementById("mode-title").textContent =
-        APP_MODE === "developer"
+        mode === "developer"
             ? "Developer Mode — pick your model, features & hyperparameters"
             : "User Mode — one-click AutoML";
+    document.getElementById("ml-developer-mode").style.display = mode === "developer" ? "block" : "none";
+    document.getElementById("ml-user-mode").style.display = mode === "developer" ? "none" : "block";
+}
+window.applyPageMode = applyMLModeUI;
+
+async function initML() {
+    applyMLModeUI(APP_MODE);
 
     try {
         const res = await fetch("/ml/status");
@@ -137,28 +168,11 @@ async function initML() {
 
         document.getElementById("ml-workspace").style.display = "block";
 
-        if (APP_MODE === "developer") {
-            document.getElementById("ml-developer-mode").style.display = "block";
-            await initDeveloperForm(data);
-        } else {
-            document.getElementById("ml-user-mode").style.display = "block";
-            document.getElementById("ml-meta-rows").textContent = `${data.rows} rows`;
-            document.getElementById("ml-meta-cols").textContent = `${data.cols} columns`;
-
-            const targetSelect = document.getElementById("ml-user-target");
-            const targetOptions = await fetchTargetOptions(data.columns);
-            populateTargetSelect(targetSelect, targetOptions, data.columns);
-
-            const badge = document.getElementById("ml-guessed-badge");
-            if (data.guessed_target) {
-                badge.textContent = `Suggested: ${data.guessed_target} (click to use)`;
-                badge.style.display = "inline-block";
-                badge.style.cursor = "pointer";
-                badge.onclick = () => { targetSelect.value = data.guessed_target; };
-            } else {
-                badge.style.display = "none";
-            }
-        }
+        // Both forms are set up unconditionally (not just the one matching
+        // the mode we happened to load in) so flipping the toggle later is
+        // just a visibility swap — nothing to (re)fetch, nothing to lose.
+        await setupUserTargetUI(data);
+        await initDeveloperForm(data);
     } catch (e) {
         showToast("Could not reach the server: " + e.message, "error");
     }

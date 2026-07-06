@@ -10,6 +10,8 @@ const Phase2 = {
     numCols: [],
     catCols: [],
     dataFromSession: false,   // true when loaded from session
+    userDashboardLoaded: false,     // true once the auto dashboard has been generated
+    devWorkspaceInitialized: false, // true once upload zone/tabs/session-load have run
 };
 
 /* ════════════════════════════════════════════

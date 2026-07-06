@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<!--
+    ================================================
+    BRight | AI Data Hub - Landing Page
+    Intro boot animation + Mode selection ONLY.
+    This page never shows the EDA workspace itself —
+    picking a mode here navigates to /index.
+    ================================================
+-->
+
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>BRight | AI Data Hub</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/app_shell.css') }}">
+</head>
+
+<body style="overflow: hidden;">
+
+    <!-- ==================== INTRO / BOOT SCREEN ==================== -->
+    <div id="intro-screen">
+        <div class="nebula-bg">
+            <div class="orb orb-1"></div>
+            <div class="orb orb-2"></div>
+            <div class="orb orb-3"></div>
+        </div>
+        <div class="cyber-grid"></div>
+
+        <div class="intro-content">
+            <div class="intro-logo-container">
+                <h1 class="intro-logo">BRight <span>AI</span></h1>
+                <div class="logo-shine"></div>
+            </div>
+
+            <!-- Loading Animation -->
+            <div class="loader-v2">
+                <div class="progress-wrapper">
+                    <div class="progress-line"></div>
+                </div>
+                <div class="status-scanner">
+                    <span class="status-text">SYSTEM BOOTING...</span>
+                    <span class="percentage" id="load-pc">0%</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Global Error Message Container -->
+    <div id="error-message" class="error-message" style="display: none;"></div>
+
+    <div id="content-area">
+
+        <!-- ==================== MODE SELECTION SCREEN ==================== -->
+        <div id="mode-select-screen" style="display: none; opacity: 0; transition: opacity 0.6s ease;">
+            <div class="mode-select-logo">BRight <span>AI</span></div>
+            <p class="mode-select-sub">Exploratory Data Analysis Platform — choose how much control you want over your
+                pipeline.</p>
+
+            <div class="mode-cards">
+                <!-- User Mode Card -->
+                <div class="mode-card user-card" id="select-user-mode">
+                    <div class="mode-card-icon"><i class="fas fa-bolt"></i></div>
+                    <div class="mode-tag">User Mode</div>
+                    <h2>Automated Intelligence</h2>
+                    <p class="mode-desc">
+                        One-click AI-driven pipeline for instant insights. Upload your data and
+                        let BRight AI handle validation, preprocessing, and reporting using
+                        optimized defaults.
+                    </p>
+                    <ul>
+                        <li>Smart type detection</li>
+                        <li>Automated cleaning</li>
+                        <li>Instant visualizations</li>
+                    </ul>
+                    <div class="mode-card-cta"><i class="fas fa-arrow-right"></i> Start Automated</div>
+                </div>
+
+                <!-- Developer Mode Card -->
+                <div class="mode-card dev-select-card" id="select-dev-mode">
+                    <div class="mode-card-icon"><i class="fas fa-code"></i></div>
+                    <div class="mode-tag">Developer Mode</div>
+                    <h2>Granular Control</h2>
+                    <p class="mode-desc">
+                        Full control workspace for technical users. Tune null-handling,
+                        outlier detection, encoding, and column selection — every stage of
+                        the pipeline is yours to configure.
+                    </p>
+                    <ul>
+                        <li>9 configurable pipeline parameters</li>
+                        <li>IQR / Z-Score with custom threshold</li>
+                        <li>Column exclusion & encoding control</li>
+                    </ul>
+                    <div class="mode-card-cta"><i class="fas fa-arrow-right"></i> Open Workspace</div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // ==========================================
+        // Intro Animation & Boot Loader
+        // ==========================================
+        const loadingSteps = [
+            "INITIALIZING CORE...",
+            "LOADING NEURAL MATRIX...",
+            "CALIBRATING DATA ENGINE...",
+            "MOUNTING AI MODULES...",
+            "SYSTEM READY"
+        ];
+
+        window.addEventListener('load', () => {
+            const counterElement = document.getElementById('load-pc');
+            const statusText = document.querySelector('.status-text');
+            let count = 0, stepIdx = 0;
+
+            const loaderInterval = setInterval(() => {
+                count++;
+                if (counterElement) counterElement.innerText = count + "%";
+                const milestone = Math.floor(count / 20);
+                if (milestone !== stepIdx && milestone < loadingSteps.length) {
+                    stepIdx = milestone;
+                    if (statusText) {
+                        statusText.style.opacity = '0';
+                        setTimeout(() => {
+                            statusText.innerText = loadingSteps[stepIdx];
+                            statusText.style.opacity = '1';
+                        }, 200);
+                    }
+                }
+                if (count === 100) clearInterval(loaderInterval);
+            }, 38);
+
+            setTimeout(() => {
+                const intro = document.getElementById('intro-screen');
+                intro.style.transition = 'opacity 0.6s ease';
+                intro.style.opacity = '0';
+                const modeSelect = document.getElementById('mode-select-screen');
+                modeSelect.style.display = 'block';
+                setTimeout(() => {
+                    modeSelect.style.opacity = '1';
+                    document.body.style.overflow = 'auto';
+                    intro.remove();
+                }, 600);
+            }, 4200);
+
+            // ==========================================
+            // Mode selection -> save mode, then go to the
+            // EDA workspace page (a separate page/route).
+            // ==========================================
+            const userCard = document.getElementById('select-user-mode');
+            const devCard = document.getElementById('select-dev-mode');
+
+            async function chooseMode(mode) {
+                await fetch("/set-mode", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ mode })
+                });
+                window.location.href = "/index";
+            }
+
+            if (userCard) {
+                userCard.addEventListener('click', () => chooseMode('user'));
+            }
+            if (devCard) {
+                devCard.addEventListener('click', () => chooseMode('developer'));
+            }
+        });
+    </script>
+</body>
+
+</html>

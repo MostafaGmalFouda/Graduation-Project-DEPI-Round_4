@@ -4,11 +4,22 @@
 
 const NLP = { textColumns: [], allColumns: [] };
 
-async function initNLP() {
+// Just flips which panel is visible + the mode-title text — both panels'
+// controls (text column select, run buttons) are already fully wired up
+// regardless of mode, so switching is instant and never loses anything.
+function applyNLPModeUI(mode) {
+    APP_MODE = mode;
     document.getElementById("mode-title").textContent =
-        APP_MODE === "developer"
+        mode === "developer"
             ? "Developer Mode — full control over vectorization & classification"
             : "User Mode — one-click text analysis";
+    document.getElementById("nlp-developer-mode").style.display = mode === "developer" ? "block" : "none";
+    document.getElementById("nlp-user-mode").style.display = mode === "developer" ? "none" : "block";
+}
+window.applyPageMode = applyNLPModeUI;
+
+async function initNLP() {
+    applyNLPModeUI(APP_MODE);
 
     try {
         const res = await fetch("/nlp/status");
@@ -34,12 +45,6 @@ async function initNLP() {
             hint.innerHTML = `<span class="col-chip categorical">✓ Auto-detected free-text column${NLP.textColumns.length > 1 ? "s" : ""}: ${NLP.textColumns.join(", ")}</span>`;
         } else {
             hint.innerHTML = `<span class="col-chip">No obvious free-text column detected — pick one manually above.</span>`;
-        }
-
-        if (APP_MODE === "developer") {
-            document.getElementById("nlp-developer-mode").style.display = "block";
-        } else {
-            document.getElementById("nlp-user-mode").style.display = "block";
         }
     } catch (e) {
         showToast("Could not reach the server: " + e.message, "error");

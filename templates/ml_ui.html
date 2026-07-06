@@ -21,22 +21,15 @@
 
     <div id="content-area">
     <div class="phase2-stage">
-
+<br>
+        <br>
+    {% include "components/mode_bar.html" %}
         <div class="phase2-header">
-            <a href="/phase2" class="back-link"><i class="fas fa-arrow-left"></i> Back to Visualization</a>
             <div class="logo-top">BRight <span>AI</span> · ML</div>
             <p id="mode-title">Loading Mode...</p>
         </div>
 
-        <div class="next-step-card">
-            <div class="next-step-text">
-                <i class="fas fa-arrow-right-long"></i>
-                <span>Working with free text instead?</span>
-            </div>
-            <div class="next-step-actions">
-                <a href="/nlp" class="next-step-btn nlp"><i class="fas fa-comment-dots"></i> Go to NLP</a>
-            </div>
-        </div>
+       
 
         <div id="ml-missing-columns-notice" class="mode-note missing-columns-note" style="display:none;"></div>
 
@@ -199,11 +192,12 @@
     </div><!-- /content-area -->
 
     <script>
-        const APP_MODE = "{{ mode }}";
+        let APP_MODE = "{{ mode }}";
     </script>
     <script src="{{ url_for('static', filename='scripts/ml_logic.js') }}"></script>
     <script src="{{ url_for('static', filename='scripts/chatbot.js') }}"></script>
     <script src="{{ url_for('static', filename='scripts/sidebar_shell.js') }}"></script>
+    <script src="{{ url_for('static', filename='scripts/mode_bar.js') }}"></script>
 
 </body>
 </html>

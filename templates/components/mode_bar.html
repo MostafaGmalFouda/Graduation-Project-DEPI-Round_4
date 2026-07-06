@@ -1,0 +1,58 @@
+<!--
+    Shared BRight AI Top Mode Bar (User Mode / Developer Mode toggle).
+    Included from each page's template via the Jinja include tag.
+
+    Expects a `mode` variable ('user' | 'developer') from the parent
+    template's render_template() call, so the bar reflects the real
+    Flask-session mode on first paint (no flash of the wrong state).
+    Also uses `active_page` (already passed on every route) just to
+    label the brand tag — purely cosmetic, safe to omit.
+
+    Wiring:
+      - index.html keeps using scripts/app_shell.js, which already
+        targets these same element ids (#mode-switch, #label-user-side,
+        #label-dev-side, #current-mode-pill, #current-mode-text) and
+        toggles the mode in place, live, without reloading the page.
+      - Every other page (Phase 2 / NLP / ML) includes
+        scripts/mode_bar.js instead, which saves the new mode then
+        reloads the page — those pages decide what to render (dev vs
+        user panels, target dropdowns, etc.) from the server-side
+        `mode` at load time, so a reload is the simplest correct way
+        to switch.
+-->
+<style>
+    /* Guaranteed color swap between modes, independent of app_shell.css —
+       teal for User Mode, purple for Developer Mode. */
+    .current-mode-pill.user-pill { color: #07cda5; border-color: #07cda5; }
+    .current-mode-pill.dev-pill { color: #a333ff; border-color: #a333ff; }
+    .mode-toggle-label.is-active.user-side { color: #07cda5; }
+    .mode-toggle-label.is-active.dev-side { color: #a333ff; }
+    /* .top-modebar-brand { border-color: #07cda5; }
+    .top-modebar-brand.dev-active { border-color: #a333ff; } */
+</style>
+<div class="top-modebar">
+    <div class="top-modebar-brand">
+        <div class="mobile-sidebar-toggle" id="mobile-sidebar-toggle-app">
+            <i class="fas fa-bars"></i>
+        </div>
+        <span class="brand-name">BRight <span>AI</span></span>
+        <span class="brand-tag">
+            {%- if active_page == 'visualization' -%} Visualization
+            {%- elif active_page == 'ml' -%} ML
+            {%- elif active_page == 'nlp' -%} NLP
+            {%- else -%} EDA Platform
+            {%- endif -%}
+        </span>
+        <span class="current-mode-pill {{ 'dev-pill' if mode == 'developer' else 'user-pill' }}" id="current-mode-pill">
+            <i class="fas {{ 'fa-code' if mode == 'developer' else 'fa-bolt' }}"></i>
+            <span id="current-mode-text">{{ 'Developer Mode' if mode == 'developer' else 'User Mode' }}</span>
+        </span>
+    </div>
+    <div class="mode-toggle-group">
+        <span class="mode-toggle-label user-side {{ 'is-active' if mode != 'developer' }}" id="label-user-side">User Mode</span>
+        <div class="mode-switch {{ 'dev-active' if mode == 'developer' }}" id="mode-switch">
+            <div class="mode-switch-knob"><i class="fas fa-bolt"></i></div>
+        </div>
+        <span class="mode-toggle-label dev-side {{ 'is-active' if mode == 'developer' }}" id="label-dev-side">Developer Mode</span>
+    </div>
+</div>
