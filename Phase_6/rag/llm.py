@@ -2,6 +2,9 @@ import os
 import requests
 
 
+LLM_TEMPERATURE = 0.1  # low = grounded/repeatable, not creative. Same value for every backend.
+
+
 class LocalLLM:
     """
     Free, runs on your machine via Ollama. Weaker reasoning, especially
@@ -12,15 +15,15 @@ class LocalLLM:
         self.url = "http://localhost:11434/api/generate"
         self.model = model or os.environ.get("OLLAMA_MODEL", "llama3.2")
 
-    def generate(self, prompt: str) -> str:
+    def generate(self, system: str, user: str) -> str:
         response = requests.post(
             self.url,
             json={
                 "model": self.model,
-                "prompt": prompt,
+                "system": system,
+                "prompt": user,
                 "stream": False,
-                # lower temperature = fewer contradictory/confident-sounding mistakes
-                "options": {"temperature": 0.2},
+                "options": {"temperature": LLM_TEMPERATURE},
             },
             timeout=120,
         )
@@ -44,7 +47,7 @@ class ClaudeLLM:
         self.api_key = os.environ.get("ANTHROPIC_API_KEY")
         self.url = "https://api.anthropic.com/v1/messages"
 
-    def generate(self, prompt: str) -> str:
+    def generate(self, system: str, user: str) -> str:
         if not self.api_key:
             raise RuntimeError(
                 "ANTHROPIC_API_KEY is not set. Either set it, or unset "
@@ -61,7 +64,9 @@ class ClaudeLLM:
             json={
                 "model": self.model,
                 "max_tokens": 600,
-                "messages": [{"role": "user", "content": prompt}],
+                "temperature": LLM_TEMPERATURE,
+                "system": system,
+                "messages": [{"role": "user", "content": user}],
             },
             timeout=60,
         )

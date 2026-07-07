@@ -84,8 +84,8 @@
                 </div>
 
                 <!-- AI Engine Indicator -->
-                <div class="processing-hub" >
-                   
+                <div class="processing-hub">
+                    <p class="status-label">ENGINE READY</p>
                 </div>
 
                 <!-- Configuration Card -->
@@ -366,8 +366,10 @@
             streamBtn.disabled = false;
             streamBtn.innerText = "LIVE PIPELINE";
             streamWrapper.classList.remove('loading');
-            statusLabel.innerText = "ENGINE READY";
-            statusLabel.style.color = "var(--neon-c)";
+            if (statusLabel) {
+                statusLabel.innerText = "ENGINE READY";
+                statusLabel.style.color = "var(--neon-c)";
+            }
             errorBox.style.display = "none";
             if (typeof resetPipeline === 'function') resetPipeline();
             if (typeof clearExcludeColumnsUI === 'function') clearExcludeColumnsUI();
@@ -401,8 +403,10 @@
                 streamBtn.disabled = false;
                 streamBtn.innerText = "LIVE PIPELINE";
                 streamWrapper.classList.remove('loading');
-                statusLabel.innerText = "ENGINE READY";
-                statusLabel.style.color = "var(--neon-c)";
+                if (statusLabel) {
+                    statusLabel.innerText = "ENGINE READY";
+                    statusLabel.style.color = "var(--neon-c)";
+                }
                 if (typeof resetPipeline === 'function') resetPipeline();
 
                 // New file selected — the previous run's "Enter" button
@@ -431,8 +435,10 @@
                 return;
             }
 
-            statusLabel.innerText = "PROCESSING PREVIEW...";
-            statusLabel.style.color = "#a333ff";
+            if (statusLabel) {
+                statusLabel.innerText = "PROCESSING PREVIEW...";
+                statusLabel.style.color = "#a333ff";
+            }
             startBtn.disabled = true;
             const formData = new FormData(e.target);
 
@@ -444,8 +450,10 @@
                     if (typeof clearChat === "function") {
                         clearChat();
                     }
-                    statusLabel.innerText = "ENGINE COMPLETE";
-                    statusLabel.style.color = "#14ffd0";
+                    if (statusLabel) {
+                        statusLabel.innerText = "ENGINE COMPLETE";
+                        statusLabel.style.color = "#14ffd0";
+                    }
                     resultsArea.style.display = 'block';
                     document.getElementById('table-preview').innerHTML = result.preview;
                     document.getElementById('res-rows').innerText = "Rows: " + result.rows;

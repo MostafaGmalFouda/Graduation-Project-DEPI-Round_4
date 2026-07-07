@@ -209,7 +209,7 @@ function addMessage(role, text) {
 
     div.className = role;
 
-    div.innerHTML = text;
+    div.textContent = text;
 
     body.appendChild(div);
 
