@@ -55,7 +55,7 @@
     </nav>
 
     <div class="sidebar-footer">
-        <div class="sidebar-item" id="sidebar-clear-data-btn" style="color:#f43f5e; cursor:pointer;" title="Permanently clear the current dataset and start over">
+        <div class="sidebar-collapse-btn sidebar-danger-btn" id="sidebar-clear-data-btn" title="Permanently clear the current dataset and start over">
             <i class="fas fa-trash"></i>
             <span class="item-label">Clear Data</span>
         </div>
@@ -66,15 +66,48 @@
     </div>
 </aside>
 
+<div class="confirm-overlay" id="clear-data-modal">
+    <div class="confirm-modal">
+        <div class="confirm-icon"><i class="fas fa-triangle-exclamation"></i></div>
+        <h3 class="confirm-title">Clear all data?</h3>
+        <p class="confirm-message">
+            This permanently clears the current dataset, chat context, and every
+            result derived from it (Visualization / NLP / ML). This is the only
+            way to load a different dataset.
+        </p>
+        <div class="confirm-actions">
+            <button class="confirm-btn confirm-cancel" id="clear-data-cancel">Cancel</button>
+            <button class="confirm-btn confirm-danger" id="clear-data-confirm">
+                <i class="fas fa-trash"></i> Clear Data
+            </button>
+        </div>
+    </div>
+</div>
+
 <script>
-    document.getElementById("sidebar-clear-data-btn").addEventListener("click", async () => {
-        if (!confirm("This permanently clears the current dataset, chat context, and every result derived from it (Visualization / NLP / ML). This is the only way to load a different dataset. Continue?")) {
-            return;
-        }
+    const clearDataModal = document.getElementById("clear-data-modal");
+
+    document.getElementById("sidebar-clear-data-btn").addEventListener("click", () => {
+        clearDataModal.classList.add("show");
+    });
+
+    document.getElementById("clear-data-cancel").addEventListener("click", () => {
+        clearDataModal.classList.remove("show");
+    });
+
+    clearDataModal.addEventListener("click", (e) => {
+        if (e.target === clearDataModal) clearDataModal.classList.remove("show");
+    });
+
+    document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") clearDataModal.classList.remove("show");
+    });
+
+    document.getElementById("clear-data-confirm").addEventListener("click", async () => {
         try {
             await fetch("/clear-data", { method: "POST" });
         } catch (e) { /* ignore — we're navigating away regardless */ }
         sessionStorage.removeItem("chat");
-        window.location.href = "/";
+        window.location.href = "/eda";
     });
 </script>
