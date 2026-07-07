@@ -22,133 +22,158 @@
     {% include "components/sidebar.html" %}
 
     <div id="content-area">
-    <div class="phase2-stage">
-<br>
-        <br>
-    {% include "components/mode_bar.html" %}
-        <div class="phase2-header">
-            <div class="logo-top">BRight <span>AI</span> · NLP</div>
-            <p id="mode-title">Loading Mode...</p>
-        </div>
+        <div class="phase2-stage">
+            <br>
+            <br>
+            {% include "components/mode_bar.html" %}
+            <div class="phase2-header">
+                <div class="logo-top">BRight <span>AI</span> · NLP</div>
+                <p id="mode-title">Loading Mode...</p>
+            </div>
+            {% if locked %}
+            <!-- ═════════════ LOCKED: dataset was set up for ML ═════════════ -->
+            <div class="upload-zone">
+                <div class="upload-icon"><i class="fas fa-lock"></i></div>
+                <h3>NLP is locked for this dataset</h3>
+                <p>Back in Phase 1 (EDA) this dataset was set up for <strong>Machine Learning</strong> —
+                    its text columns were fully encoded, not kept as readable text, so NLP analysis
+                    would be meaningless here. Upload a new dataset and choose "NLP / Text Analysis"
+                    to unlock this page.</p>
+                <a href="/ml" class="generate-btn"
+                    style="display:inline-flex; margin-top:14px; text-decoration:none; width:auto; padding:12px 26px;">
+                    <i class="fas fa-brain"></i> Go to ML instead
+                </a>
+            </div>
+            {% else %}
 
-        
 
-        <!-- ═════════════════════════════════════
+            <!-- ═════════════════════════════════════
              TEXT COLUMN SELECTION (shared by both modes)
         ══════════════════════════════════════ -->
-        <div id="nlp-no-data" class="upload-zone" style="display:none;">
-            <div class="upload-icon"><i class="fas fa-triangle-exclamation"></i></div>
-            <h3>No Data Loaded Yet</h3>
-            <p>Run Phase 1 (EDA) first so BRight AI has a dataset to work with.</p>
-            <a href="/" class="generate-btn" style="display:inline-flex; margin-top:14px; text-decoration:none; width:auto; padding:12px 26px;">
-                <i class="fas fa-arrow-left"></i> Go to Phase 1
-            </a>
-        </div>
-
-        <div id="nlp-workspace" style="display:none;">
-            <div class="columns-panel">
-                <div class="columns-panel-header">
-                    <h3><i class="fas fa-comment-dots" style="margin-right:8px;"></i> Text Column</h3>
-                    <div class="dataset-meta">
-                        <div class="meta-chip"><i class="fas fa-rows"></i><span id="nlp-meta-rows">—</span></div>
-                    </div>
-                </div>
-                <div class="form-group" style="max-width:420px;">
-                    <label>Column to analyze</label>
-                    <select id="nlp-text-column" class="form-select"></select>
-                </div>
-                <div class="columns-grid" id="nlp-detected-hint"></div>
+            <div id="nlp-no-data" class="upload-zone" style="display:none;">
+                <div class="upload-icon"><i class="fas fa-triangle-exclamation"></i></div>
+                <h3>No Data Loaded Yet</h3>
+                <p>Run Phase 1 (EDA) first so BRight AI has a dataset to work with.</p>
+                <a href="/eda" class="generate-btn"
+                    style="display:inline-flex; margin-top:14px; text-decoration:none; width:auto; padding:12px 26px;">
+                    <i class="fas fa-arrow-left"></i> Go to Phase 1
+                </a>
             </div>
 
-            <!-- ═════════════════ USER MODE ═════════════════ -->
-            <div id="nlp-user-mode" class="mode-panel">
-                <div class="section-divider"><span>One-click Analysis</span></div>
-                <div class="run-all-wrapper">
-                    <button class="run-all-btn" id="nlp-auto-run-btn">
-                        <i class="fas fa-wand-magic-sparkles"></i> Analyze Text
-                    </button>
-                </div>
-            </div>
-
-            <!-- ═══════════════ DEVELOPER MODE ═══════════════ -->
-            <div id="nlp-developer-mode" class="mode-panel">
-                <div class="chart-config-grid">
-                    <div class="chart-config-card">
-                        <div class="chart-card-title"><i class="fas fa-sliders"></i> Vectorizer &amp; Keywords</div>
-                        <div class="form-group">
-                            <label>Method</label>
-                            <select id="nlp-dev-method" class="form-select">
-                                <option value="tfidf">TF-IDF</option>
-                                <option value="count">Bag of Words (Count)</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>N-gram range</label>
-                            <select id="nlp-dev-ngram" class="form-select">
-                                <option value="1">Unigrams (1,1)</option>
-                                <option value="2">Uni + Bigrams (1,2)</option>
-                                <option value="3">Uni + Bi + Trigrams (1,3)</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>Top N terms</label>
-                            <select id="nlp-dev-topn" class="form-select">
-                                <option value="10">10</option>
-                                <option value="20" selected>20</option>
-                                <option value="30">30</option>
-                            </select>
+            <div id="nlp-workspace" style="display:none;">
+                <div class="columns-panel">
+                    <div class="columns-panel-header">
+                        <h3><i class="fas fa-comment-dots" style="margin-right:8px;"></i> Text Column</h3>
+                        <div class="dataset-meta">
+                            <div class="meta-chip"><i class="fas fa-rows"></i><span id="nlp-meta-rows">—</span></div>
                         </div>
                     </div>
+                    <div class="form-group" style="max-width:420px;">
+                        <label>Column to analyze</label>
+                        <select id="nlp-text-column" class="form-select"></select>
+                    </div>
+                    <div class="columns-grid" id="nlp-detected-hint"></div>
+                </div>
 
-                    <div class="chart-config-card">
-                        <div class="chart-card-title"><i class="fas fa-face-smile"></i> Sentiment</div>
-                        <div class="form-group">
-                            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
-                                <input type="checkbox" id="nlp-dev-sentiment" checked>
-                                Include rule-based sentiment
-                            </label>
-                            <p class="hint">Lightweight lexicon signal, not a trained model. Need a real trained classifier on a label column? Use the <a href="/ml">ML page</a> (Phase 5) instead — that's where model training belongs.</p>
-                        </div>
+                <!-- ═════════════════ USER MODE ═════════════════ -->
+                <div id="nlp-user-mode" class="mode-panel">
+                    <div class="section-divider"><span>One-click Analysis</span></div>
+                    <div class="run-all-wrapper">
+                        <button class="run-all-btn" id="nlp-auto-run-btn">
+                            <i class="fas fa-wand-magic-sparkles"></i> Analyze Text
+                        </button>
                     </div>
                 </div>
 
-                <div class="run-all-wrapper">
-                    <button class="run-all-btn" id="nlp-dev-run-btn">
-                        <i class="fas fa-play"></i> Run NLP Analysis
-                    </button>
+                <!-- ═══════════════ DEVELOPER MODE ═══════════════ -->
+                <div id="nlp-developer-mode" class="mode-panel">
+                    <div class="chart-config-grid">
+                        <div class="chart-config-card">
+                            <div class="chart-card-title"><i class="fas fa-sliders"></i> Vectorizer &amp; Keywords</div>
+                            <div class="form-group">
+                                <label>Method</label>
+                                <select id="nlp-dev-method" class="form-select">
+                                    <option value="tfidf">TF-IDF</option>
+                                    <option value="count">Bag of Words (Count)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>N-gram range</label>
+                                <select id="nlp-dev-ngram" class="form-select">
+                                    <option value="1">Unigrams (1,1)</option>
+                                    <option value="2">Uni + Bigrams (1,2)</option>
+                                    <option value="3">Uni + Bi + Trigrams (1,3)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Top N terms</label>
+                                <select id="nlp-dev-topn" class="form-select">
+                                    <option value="10">10</option>
+                                    <option value="20" selected>20</option>
+                                    <option value="30">30</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="chart-config-card">
+                            <div class="chart-card-title"><i class="fas fa-face-smile"></i> Sentiment</div>
+                            <div class="form-group">
+                                <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                                    <input type="checkbox" id="nlp-dev-sentiment" checked>
+                                    Include rule-based sentiment
+                                </label>
+                                <p class="hint">Lightweight lexicon signal, not a trained model. Need a real trained
+                                    classifier on a label column? Use the <a href="/ml">ML page</a> (Phase 5) instead —
+                                    that's where model training belongs.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="run-all-wrapper">
+                        <button class="run-all-btn" id="nlp-dev-run-btn">
+                            <i class="fas fa-play"></i> Run NLP Analysis
+                        </button>
+                    </div>
+                </div>
+
+                <div class="viz-loading" id="nlp-loading"
+                    style="display:none; min-height:220px; flex-direction:column; align-items:center; justify-content:center; text-align:center;">
+                    <div class="viz-spinner"></div>
+                    <p>Analyzing text…</p>
+                </div>
+
+                <!-- ═════════════════ RESULTS ═════════════════ -->
+                <div id="nlp-results" style="display:none;">
+                    <div class="section-divider"><span>Results</span></div>
+
+                    <div class="metric-row" id="nlp-stat-cards"></div>
+
+                    <div class="viz-dashboard-grid" id="nlp-plots-grid"></div>
+
+                    <div class="summary-panel" id="nlp-sentiment-summary" style="display:none;">
+                        <div class="summary-panel-header">
+                            <h3><i class="fas fa-face-smile"></i> Sentiment Summary</h3>
+                        </div>
+                        <div id="nlp-sentiment-body"></div>
+                    </div>
                 </div>
             </div>
 
-            <div class="viz-loading" id="nlp-loading" style="display:none; min-height:220px; flex-direction:column; align-items:center; justify-content:center; text-align:center;">
-                <div class="viz-spinner"></div>
-                <p>Analyzing text…</p>
-            </div>
-
-            <!-- ═════════════════ RESULTS ═════════════════ -->
-            <div id="nlp-results" style="display:none;">
-                <div class="section-divider"><span>Results</span></div>
-
-                <div class="metric-row" id="nlp-stat-cards"></div>
-
-                <div class="viz-dashboard-grid" id="nlp-plots-grid"></div>
-
-                <div class="summary-panel" id="nlp-sentiment-summary" style="display:none;">
-                    <div class="summary-panel-header"><h3><i class="fas fa-face-smile"></i> Sentiment Summary</h3></div>
-                    <div id="nlp-sentiment-body"></div>
-                </div>
-            </div>
-        </div>
-
-    </div><!-- /phase2-stage -->
+            {% endif %}
+        </div><!-- /phase2-stage -->
     </div><!-- /content-area -->
 
     <script>
-        let APP_MODE = "{{ mode }}";
+        let  APP_MODE = "{{ mode }}";
+        const NLP_INITIAL = {{ nlp_state | tojson }};
     </script>
+    {% if not locked %}
     <script src="{{ url_for('static', filename='scripts/nlp_logic.js') }}"></script>
+    {% endif %}
     <script src="{{ url_for('static', filename='scripts/chatbot.js') }}"></script>
     <script src="{{ url_for('static', filename='scripts/sidebar_shell.js') }}"></script>
     <script src="{{ url_for('static', filename='scripts/mode_bar.js') }}"></script>
 
 </body>
+
 </html>

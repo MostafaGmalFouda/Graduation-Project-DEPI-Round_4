@@ -25,21 +25,56 @@
             <span class="item-label">Visualization</span>
         </a>
 
+        {% set purpose = session.get('data_purpose', 'general') %}
+        
+         {% if purpose == 'nlp' %}
+        <a class="sidebar-item disabled" id="nav-ml" href="#" title="Locked — this dataset was set up for NLP" onclick="return false;">
+            <i class="fas fa-lock"></i>
+            <span class="item-label">ML</span>
+        </a>
+        {% else %}
         <a class="sidebar-item {{ 'active' if active_page == 'ml' }}" id="nav-ml" href="/ml">
             <i class="fas fa-brain"></i>
             <span class="item-label">ML</span>
         </a>
+        {% endif %}
 
+        {% if purpose == 'ml' %}
+        <a class="sidebar-item disabled" id="nav-nlp" href="#" title="Locked — this dataset was set up for ML" onclick="return false;">
+            <i class="fas fa-lock"></i>
+            <span class="item-label">NLP</span>
+        </a>
+        {% else %}
         <a class="sidebar-item {{ 'active' if active_page == 'nlp' }}" id="nav-nlp" href="/nlp">
             <i class="fas fa-comment-dots"></i>
             <span class="item-label">NLP</span>
         </a>
+        {% endif %}
+
+       
     </nav>
 
     <div class="sidebar-footer">
+        <div class="sidebar-item" id="sidebar-clear-data-btn" style="color:#f43f5e; cursor:pointer;" title="Permanently clear the current dataset and start over">
+            <i class="fas fa-trash"></i>
+            <span class="item-label">Clear Data</span>
+        </div>
         <div class="sidebar-collapse-btn" id="sidebar-collapse-btn">
             <i class="fas fa-angles-left"></i>
             <span class="item-label">Collapse</span>
         </div>
     </div>
 </aside>
+
+<script>
+    document.getElementById("sidebar-clear-data-btn").addEventListener("click", async () => {
+        if (!confirm("This permanently clears the current dataset, chat context, and every result derived from it (Visualization / NLP / ML). This is the only way to load a different dataset. Continue?")) {
+            return;
+        }
+        try {
+            await fetch("/clear-data", { method: "POST" });
+        } catch (e) { /* ignore — we're navigating away regardless */ }
+        sessionStorage.removeItem("chat");
+        window.location.href = "/";
+    });
+</script>

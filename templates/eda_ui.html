@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BRight AI | Phase 1 — EDA</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/phase2_style.css') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/app_shell.css') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/nlp_ml_style.css') }}" />
+</head>
+{% include "components/chatbot.html" %}
+<link rel="stylesheet" href="{{ url_for('static',filename='css/chatbot.css') }}">
+
+<body>
+
+    {% include "components/sidebar.html" %}
+
+    <div id="content-area">
+    <div class="phase2-stage nlp-ml-stage">
+
+        <div class="phase2-header">
+            <div class="logo-top">BRight <span>AI</span> · EDA</div>
+            <p id="mode-title">{{ 'Developer Mode' if mode == 'developer' else 'User Mode' }}</p>
+        </div>
+
+        {% if has_clean %}
+        <!-- ═════════════ RESULTS READY ═════════════ -->
+        <div class="columns-panel" style="display:block;">
+            <div class="columns-panel-header">
+                <h3><i class="fas fa-circle-check" style="color:var(--neon-c); margin-right:8px;"></i> Your dataset is ready</h3>
+                <div class="dataset-meta">
+                    <div class="meta-chip"><i class="fas fa-rows"></i>{{ stats.rows }} rows</div>
+                    <div class="meta-chip"><i class="fas fa-columns"></i>{{ stats.cols }} columns</div>
+                    {% if data_purpose == 'nlp' %}
+                    <div class="meta-chip" style="color:var(--neon-c); border-color:var(--neon-c);"><i class="fas fa-comment-dots"></i>Cleaned for NLP (text preserved)</div>
+                    {% elif data_purpose == 'ml' %}
+                    <div class="meta-chip" style="color:var(--neon-p); border-color:var(--neon-p);"><i class="fas fa-brain"></i>Cleaned for ML (fully encoded)</div>
+                    {% endif %}
+                </div>
+            </div>
+            <p style="color:var(--txt-dim); font-size:13.5px; margin-bottom:18px;">
+                This is the cleaned, preprocessed version of your data — every other phase
+                (Visualization, NLP, ML) builds on top of it. It stays available here no matter
+                where you navigate to next, until you explicitly upload a different dataset.
+            </p>
+
+            <div class="run-all-wrapper" style="gap:12px; flex-wrap:wrap;">
+                {% if report_view_url %}
+                <a href="{{ report_view_url }}" target="_blank" class="run-all-btn" style="text-decoration:none;">
+                    <i class="fas fa-eye"></i> View Report
+                </a>
+                <a href="{{ report_download_url }}" class="run-all-btn" style="text-decoration:none; background:transparent; border:1px solid var(--border-glass); color:var(--txt);">
+                    <i class="fas fa-download"></i> Download Report
+                </a>
+                {% endif %}
+                <a href="/eda/download-data" class="run-all-btn" style="text-decoration:none; background:transparent; border:1px solid var(--neon-p); color:var(--neon-p);">
+                    <i class="fas fa-table"></i> Download Cleaned Data (CSV)
+                </a>
+                <a href="/phase2" class="run-all-btn" style="text-decoration:none; background:transparent; border:1px solid var(--neon-c); color:var(--neon-c);">
+                    <i class="fas fa-chart-pie"></i> Continue to Visualization
+                </a>
+            </div>
+        </div>
+
+        <div class="summary-panel" style="margin-top:24px;">
+            <div class="summary-panel-header">
+                <h3><i class="fas fa-info-circle"></i> About this data</h3>
+            </div>
+            <p style="color:var(--txt-dim); font-size:13px; margin-bottom:0;">
+                This dataset stays loaded no matter which page you visit, and even if you refresh
+                the browser — it's only ever cleared by the "Clear Data" button in the sidebar.
+            </p>
+        </div>
+
+        {% elif has_raw %}
+        <!-- ═════════════ UPLOADED, NOT YET PROCESSED ═════════════ -->
+        <div class="upload-zone">
+            <div class="upload-icon"><i class="fas fa-gears"></i></div>
+            <h3>Almost there</h3>
+            <p>You've uploaded a dataset, but haven't run the engine on it yet. Go back to
+                the upload page to configure the pipeline and click "Start Engine".</p>
+            <a href="/" class="generate-btn" style="display:inline-flex; margin-top:14px; text-decoration:none; width:auto; padding:12px 26px;">
+                <i class="fas fa-arrow-left"></i> Continue Setup
+            </a>
+        </div>
+
+        {% else %}
+        <!-- ═════════════ NO DATA AT ALL ═════════════ -->
+        <div class="upload-zone">
+            <div class="upload-icon"><i class="fas fa-triangle-exclamation"></i></div>
+            <h3>No Data Loaded Yet</h3>
+            <p>Upload a dataset first so BRight AI has something to analyze.</p>
+            <a href="/" class="generate-btn" style="display:inline-flex; margin-top:14px; text-decoration:none; width:auto; padding:12px 26px;">
+                <i class="fas fa-arrow-left"></i> Go to Upload
+            </a>
+        </div>
+        {% endif %}
+
+    </div><!-- /phase2-stage -->
+    </div><!-- /content-area -->
+
+    <script src="{{ url_for('static', filename='scripts/chatbot.js') }}"></script>
+    <script src="{{ url_for('static', filename='scripts/sidebar_shell.js') }}"></script>
+
+</body>
+</html>

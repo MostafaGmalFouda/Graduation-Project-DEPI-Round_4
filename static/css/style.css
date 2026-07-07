@@ -463,3 +463,33 @@ select:hover { border-color: var(--neon-p); background: rgba(13, 12, 12, 0.5); }
 .status-text {
     transition: opacity 0.2s ease;
 }
+
+
+.enter-btn {
+  display: none;
+  margin: 26px 20px 40px 1px;
+  padding: 14px 20px;
+  background: linear-gradient(135deg,#381059,#a333ff);
+  color: #05201c;
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.5px;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  box-shadow: 0 0 20px rgba(151, 45, 212, 0.4);
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.5s ease, transform 0.5s ease, box-shadow 0.2s ease;
+}
+
+.enter-btn.show {
+  display: block;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.enter-btn:hover {
+  box-shadow: 0 0 30px rgba(179, 45, 212, 0.6);
+  transform: translateY(-2px);
+}

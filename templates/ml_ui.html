@@ -20,184 +20,244 @@
     {% include "components/sidebar.html" %}
 
     <div id="content-area">
-    <div class="phase2-stage">
-<br>
-        <br>
-    {% include "components/mode_bar.html" %}
-        <div class="phase2-header">
-            <div class="logo-top">BRight <span>AI</span> · ML</div>
-            <p id="mode-title">Loading Mode...</p>
-        </div>
+        <div class="phase2-stage">
+            <br>
+            <br>
+            {% include "components/mode_bar.html" %}
+            <div class="phase2-header">
+                <div class="logo-top">BRight <span>AI</span> · ML</div>
+                <p id="mode-title">Loading Mode...</p>
+            </div>
 
-       
+            {% if locked %}
+            <!-- ═════════════ LOCKED: dataset was set up for NLP ═════════════ -->
+            <div class="upload-zone">
+                <div class="upload-icon"><i class="fas fa-lock"></i></div>
+                <h3>ML is locked for this dataset</h3>
+                <p>Back in Phase 1 (EDA) this dataset was set up for <strong>NLP / Text Analysis</strong> —
+                    its text column was kept as raw, readable text instead of being encoded into numeric
+                    features, so model training would fail or be meaningless here. Upload a new dataset
+                    and choose "Machine Learning" to unlock this page.</p>
+                <a href="/nlp" class="generate-btn"
+                    style="display:inline-flex; margin-top:14px; text-decoration:none; width:auto; padding:12px 26px;">
+                    <i class="fas fa-comment-dots"></i> Go to NLP instead
+                </a>
+            </div>
+            {% else %}
 
-        <div id="ml-missing-columns-notice" class="mode-note missing-columns-note" style="display:none;"></div>
+            <div id="ml-missing-columns-notice" class="mode-note missing-columns-note" style="display:none;"></div>
 
-        <div id="ml-no-data" class="upload-zone" style="display:none;">
-            <div class="upload-icon"><i class="fas fa-triangle-exclamation"></i></div>
-            <h3>No Data Loaded Yet</h3>
-            <p>Run Phase 1 (EDA) first so BRight AI has preprocessed data to train on.</p>
-            <a href="/" class="generate-btn" style="display:inline-flex; margin-top:14px; text-decoration:none; width:auto; padding:12px 26px;">
-                <i class="fas fa-arrow-left"></i> Go to Phase 1
-            </a>
-        </div>
+            <div id="ml-no-data" class="upload-zone" style="display:none;">
+                <div class="upload-icon"><i class="fas fa-triangle-exclamation"></i></div>
+                <h3>No Data Loaded Yet</h3>
+                <p>Run Phase 1 (EDA) first so BRight AI has preprocessed data to train on.</p>
+                <a href="/eda" class="generate-btn"
+                    style="display:inline-flex; margin-top:14px; text-decoration:none; width:auto; padding:12px 26px;">
+                    <i class="fas fa-arrow-left"></i> Go to Phase 1
+                </a>
+            </div>
 
-        <div id="ml-workspace" style="display:none;">
+            <div id="ml-workspace" style="display:none;">
 
-            <!-- ═════════════════ USER MODE ═════════════════ -->
-            <div id="ml-user-mode" class="mode-panel">
-                <div class="summary-panel">
-                    <div class="summary-panel-header">
-                        <h3><i class="fas fa-brain" style="margin-right:8px;"></i> AutoML</h3>
-                        <div class="dataset-meta">
-                            <div class="meta-chip"><i class="fas fa-rows"></i><span id="ml-meta-rows">—</span></div>
-                            <div class="meta-chip"><i class="fas fa-columns"></i><span id="ml-meta-cols">—</span></div>
+                <!-- ═════════════════ USER MODE ═════════════════ -->
+                <div id="ml-user-mode" class="mode-panel">
+                    <div class="summary-panel">
+                        <div class="summary-panel-header">
+                            <h3><i class="fas fa-brain" style="margin-right:8px;"></i> AutoML</h3>
+                            <div class="dataset-meta">
+                                <div class="meta-chip"><i class="fas fa-rows"></i><span id="ml-meta-rows">—</span></div>
+                                <div class="meta-chip"><i class="fas fa-columns"></i><span id="ml-meta-cols">—</span>
+                                </div>
+                            </div>
+                        </div>
+                        <p style="color:var(--txt-dim); font-size:13.5px; margin:10px 0 14px;">
+                            Choose your target column below — BRight AI will detect the task type from it,
+                            compare a few fast models, and recommend the best one. You always pick the target;
+                            nothing is auto-selected for you.
+                        </p>
+                        <div class="form-group" style="max-width:420px;">
+                            <label>Target column <span id="ml-guessed-badge" class="guessed-badge"
+                                    style="display:none;"></span></label>
+                            <select id="ml-user-target" class="form-select"></select>
                         </div>
                     </div>
-                    <p style="color:var(--txt-dim); font-size:13.5px; margin:10px 0 14px;">
-                        Choose your target column below — BRight AI will detect the task type from it,
-                        compare a few fast models, and recommend the best one. You always pick the target;
-                        nothing is auto-selected for you.
-                    </p>
-                    <div class="form-group" style="max-width:420px;">
-                        <label>Target column <span id="ml-guessed-badge" class="guessed-badge" style="display:none;"></span></label>
-                        <select id="ml-user-target" class="form-select"></select>
-                    </div>
-                </div>
-                <div class="run-all-wrapper">
-                    <button class="run-all-btn" id="ml-auto-recommend-btn">
-                        <i class="fas fa-magnifying-glass-chart"></i> Get Recommended Model
-                    </button>
-                </div>
-
-                <!-- Recommendation card: shown after /ml/recommend, before anything is trained -->
-                <div id="ml-recommend-card" class="summary-panel" style="display:none;">
-                    <div class="summary-panel-header"><h3><i class="fas fa-star"></i> Recommended Model</h3></div>
-                    <div class="recommend-best">
-                        <div class="recommend-best-info">
-                            <span class="guessed-badge">Recommended</span>
-                            <span class="recommend-best-name" id="ml-recommend-name">—</span>
-                        </div>
-                        <div class="recommend-best-score" id="ml-recommend-score">—</div>
-                    </div>
-                    <div class="recommend-candidates" id="ml-recommend-candidates"></div>
-
-                    <div class="run-all-wrapper" style="display:flex; gap:12px; justify-content:center; flex-wrap:wrap;">
-                        <button class="run-all-btn" id="ml-accept-recommend-btn">
-                            <i class="fas fa-check"></i> Train This Model
-                        </button>
-                        <button class="run-all-btn secondary-btn" id="ml-choose-another-btn">
-                            <i class="fas fa-list"></i> Choose Another Model
+                    <div class="run-all-wrapper">
+                        <button class="run-all-btn" id="ml-auto-recommend-btn">
+                            <i class="fas fa-magnifying-glass-chart"></i> Get Recommended Model
                         </button>
                     </div>
 
-                    <div id="ml-alt-model-picker" style="display:none;">
-                        <div class="form-group" style="max-width:320px; margin:14px auto 0;">
-                            <label>Pick a different model</label>
-                            <select id="ml-alt-model-select" class="form-select"></select>
+                    <!-- Recommendation card: shown after /ml/recommend, before anything is trained -->
+                    <div id="ml-recommend-card" class="summary-panel" style="display:none;">
+                        <div class="summary-panel-header">
+                            <h3><i class="fas fa-star"></i> Recommended Model</h3>
                         </div>
-                        <div class="run-all-wrapper">
-                            <button class="run-all-btn" id="ml-train-alt-btn">
-                                <i class="fas fa-play"></i> Train Selected Model
+                        <div class="recommend-best">
+                            <div class="recommend-best-info">
+                                <span class="guessed-badge">Recommended</span>
+                                <span class="recommend-best-name" id="ml-recommend-name">—</span>
+                            </div>
+                            <div class="recommend-best-score" id="ml-recommend-score">—</div>
+                        </div>
+                        <div class="recommend-candidates" id="ml-recommend-candidates"></div>
+
+                        <div class="run-all-wrapper"
+                            style="display:flex; gap:12px; justify-content:center; flex-wrap:wrap;">
+                            <button class="run-all-btn" id="ml-accept-recommend-btn">
+                                <i class="fas fa-check"></i> Train This Model
+                            </button>
+                            <button class="run-all-btn secondary-btn" id="ml-choose-another-btn">
+                                <i class="fas fa-list"></i> Choose Another Model
                             </button>
                         </div>
-                    </div>
-                </div>
-            </div>
 
-            <!-- ═══════════════ DEVELOPER MODE ═══════════════ -->
-            <div id="ml-developer-mode" class="mode-panel">
-                <div class="chart-config-grid">
-                    <div class="chart-config-card">
-                        <div class="chart-card-title"><i class="fas fa-bullseye"></i> Target &amp; Task</div>
-                        <div class="form-group">
-                            <label>Target column <span id="ml-dev-guessed-badge" class="guessed-badge" style="display:none;"></span></label>
-                            <select id="ml-dev-target" class="form-select"></select>
+                        <div id="ml-alt-model-picker" style="display:none;">
+                            <div class="form-group" style="max-width:320px; margin:14px auto 0;">
+                                <label>Pick a different model</label>
+                                <select id="ml-alt-model-select" class="form-select"></select>
+                            </div>
+                            <div class="run-all-wrapper">
+                                <button class="run-all-btn" id="ml-train-alt-btn">
+                                    <i class="fas fa-play"></i> Train Selected Model
+                                </button>
+                            </div>
                         </div>
-                        <div class="form-group">
-                            <label>Task type</label>
-                            <select id="ml-dev-task" class="form-select">
-                                <option value="">Auto-detect from target</option>
-                                <option value="classification">Classification</option>
-                                <option value="regression">Regression</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>Test size</label>
-                            <select id="ml-dev-testsize" class="form-select">
-                                <option value="0.1">10%</option>
-                                <option value="0.2" selected>20%</option>
-                                <option value="0.3">30%</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="chart-config-card">
-                        <div class="chart-card-title"><i class="fas fa-cubes"></i> Model &amp; Hyperparameters</div>
-                        <div class="form-group">
-                            <label>Model</label>
-                            <select id="ml-dev-model" class="form-select"></select>
-                        </div>
-                        <div id="ml-dev-hyperparams"><!-- filled dynamically based on the selected model --></div>
-                        <div class="form-check">
-                            <input type="checkbox" id="ml-dev-scale">
-                            <label for="ml-dev-scale">Standardize features <span id="ml-dev-scale-hint" class="hint">(recommended for SVM / KNN)</span></label>
-                        </div>
-                    </div>
-
-                    <div class="chart-config-card">
-                        <div class="chart-card-title"><i class="fas fa-list-check"></i> Feature Columns</div>
-                        <p style="color:var(--txt-dim); font-size:12.5px; margin-bottom:10px;">Leave all checked to use every remaining column.</p>
-                        <div class="columns-grid" id="ml-dev-features"></div>
                     </div>
                 </div>
 
-                <div class="run-all-wrapper">
-                    <button class="run-all-btn" id="ml-dev-run-btn">
-                        <i class="fas fa-play"></i> Train Model
-                    </button>
-                </div>
-            </div>
+                <!-- ═══════════════ DEVELOPER MODE ═══════════════ -->
+                <div id="ml-developer-mode" class="mode-panel">
+                    <div class="chart-config-grid">
+                        <div class="chart-config-card">
+                            <div class="chart-card-title"><i class="fas fa-bullseye"></i> Target &amp; Task</div>
+                            <div class="form-group">
+                                <label>Target column <span id="ml-dev-guessed-badge" class="guessed-badge"
+                                        style="display:none;"></span></label>
+                                <select id="ml-dev-target" class="form-select"></select>
+                            </div>
+                            <div class="form-group">
+                                <label>Task type</label>
+                                <select id="ml-dev-task" class="form-select">
+                                    <option value="">Auto-detect from target</option>
+                                    <option value="classification">Classification</option>
+                                    <option value="regression">Regression</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Test size</label>
+                                <select id="ml-dev-testsize" class="form-select">
+                                    <option value="0.1">10%</option>
+                                    <option value="0.2" selected>20%</option>
+                                    <option value="0.3">30%</option>
+                                </select>
+                            </div>
+                        </div>
 
-            <div class="viz-loading" id="ml-loading" style="display:none; min-height:220px; flex-direction:column; align-items:center; justify-content:center; text-align:center;">
-                <div class="viz-spinner"></div>
-                <p>Training model…</p>
-            </div>
+                        <div class="chart-config-card">
+                            <div class="chart-card-title"><i class="fas fa-cubes"></i> Model &amp; Hyperparameters</div>
+                            <div class="form-group">
+                                <label>Model</label>
+                                <select id="ml-dev-model" class="form-select"></select>
+                            </div>
+                            <div id="ml-dev-hyperparams"><!-- filled dynamically based on the selected model --></div>
+                            <div class="form-check">
+                                <input type="checkbox" id="ml-dev-scale">
+                                <label for="ml-dev-scale">Standardize features <span id="ml-dev-scale-hint"
+                                        class="hint">(recommended for SVM / KNN)</span></label>
+                            </div>
+                        </div>
 
-            <!-- ═════════════════ RESULTS ═════════════════ -->
-            <div id="ml-results" style="display:none;">
-                <div class="section-divider"><span>Results</span></div>
+                        <div class="chart-config-card">
+                            <div class="chart-card-title"><i class="fas fa-list-check"></i> Feature Columns</div>
+                            <p style="color:var(--txt-dim); font-size:12.5px; margin-bottom:10px;">Leave all checked to
+                                use every remaining column.</p>
+                            <div class="columns-grid" id="ml-dev-features"></div>
+                        </div>
+                    </div>
 
-                <div id="ml-mode-note" class="mode-note" style="display:none;"></div>
-
-                <div class="metric-row" id="ml-metric-cards"></div>
-
-                <div class="viz-dashboard-grid" id="ml-plots-grid"></div>
-
-                <!-- Try a prediction -->
-                 <br>
-                 <br>
-                <div class="summary-panel" id="ml-predict-panel">
-                    <div class="summary-panel-header"><h3><i class="fas fa-flask"></i> Try a Prediction</h3></div>
-                    <div class="chart-config-grid" id="ml-predict-form"></div>
                     <div class="run-all-wrapper">
-                        <button class="run-all-btn" id="ml-predict-btn"><i class="fas fa-bolt"></i> Predict</button>
+                        <button class="run-all-btn" id="ml-dev-run-btn">
+                            <i class="fas fa-play"></i> Train Model
+                        </button>
                     </div>
-                    <div id="ml-predict-result" class="predict-result"></div>
+                </div>
+
+                <div class="viz-loading" id="ml-loading"
+                    style="display:none; min-height:220px; flex-direction:column; align-items:center; justify-content:center; text-align:center;">
+                    <div class="viz-spinner"></div>
+                    <p>Training model…</p>
+                </div>
+
+                <!-- ═════════════════ RESULTS ═════════════════ -->
+                <div id="ml-results" style="display:none;">
+                    <div class="section-divider"><span>Results</span></div>
+
+                    <div id="ml-mode-note" class="mode-note" style="display:none;"></div>
+
+                    <div class="metric-row" id="ml-metric-cards"></div><!-- AI Explanation -->
+                    <div class="summary-panel" id="ml-explanation-panel" style="display:none;">
+                        <div class="summary-panel-header">
+                            <h3><i class="fas fa-lightbulb"></i> AI Explanation</h3>
+                        </div>
+                        <p id="ml-explanation-text"
+                            style="color:var(--txt); font-size:14.5px; line-height:1.7; margin:0;"></p>
+                    </div>
+
+                    <!-- Class balance / per-class metrics (classification only) -->
+                    <div class="summary-panel" id="ml-imbalance-panel" style="display:none;">
+                        <div class="summary-panel-header">
+                            <h3><i class="fas fa-scale-unbalanced"></i> Class Balance</h3>
+                        </div>
+                        <div id="ml-imbalance-warning"
+                            style="display:none; background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.35); color:#f59e0b; border-radius:10px; padding:12px 16px; font-size:13.5px; margin-bottom:16px;">
+                            <i class="fas fa-triangle-exclamation"></i> This dataset's classes are imbalanced — check
+                            per-class scores below, not just overall accuracy.
+                        </div>
+                        <div style="overflow-x:auto;">
+                            <table class="preview-table" id="ml-per-class-table" style="width:100%;"></table>
+                        </div>
+                    </div>
+
+                    <div class="run-all-wrapper" id="ml-download-model-wrapper" style="margin-bottom:10px;">
+                        <a class="run-all-btn" id="ml-download-model-btn" href="#" download
+                            style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center; gap:8px; background:transparent; border:1px solid var(--txt-dim); color:var(--txt);">
+                            <i class="fas fa-download"></i> Download Trained Model (.pkl)
+                        </a>
+                    </div>
+
+                    <div class="viz-dashboard-grid" id="ml-plots-grid"></div>
+
+                    <!-- Try a prediction -->
+                    <br>
+                    <br>
+                    <div class="summary-panel" id="ml-predict-panel">
+                        <div class="summary-panel-header">
+                            <h3><i class="fas fa-flask"></i> Try a Prediction</h3>
+                        </div>
+                        <div class="chart-config-grid" id="ml-predict-form"></div>
+                        <div class="run-all-wrapper">
+                            <button class="run-all-btn" id="ml-predict-btn"><i class="fas fa-bolt"></i> Predict</button>
+                        </div>
+                        <div id="ml-predict-result" class="predict-result"></div>
+                    </div>
                 </div>
             </div>
-        </div>
-
-    </div><!-- /phase2-stage -->
+            {% endif %}
+        </div><!-- /phase2-stage -->
     </div><!-- /content-area -->
 
     <script>
         let APP_MODE = "{{ mode }}";
+        const ML_INITIAL = {{ ml_state | tojson }};
+
     </script>
+    {% if not locked %}
     <script src="{{ url_for('static', filename='scripts/ml_logic.js') }}"></script>
+    {% endif %}
     <script src="{{ url_for('static', filename='scripts/chatbot.js') }}"></script>
     <script src="{{ url_for('static', filename='scripts/sidebar_shell.js') }}"></script>
     <script src="{{ url_for('static', filename='scripts/mode_bar.js') }}"></script>
 
 </body>
+
 </html>

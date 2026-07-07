@@ -439,6 +439,15 @@ function renderMLResults(data) {
         plotsGrid.innerHTML += plotCard(key, `/ml/view/${filename}`, `/ml/download/${filename}`);
     }
 
+    // AI Explanation
+    if (data.explanation) {
+        document.getElementById("ml-explanation-panel").style.display = "block";
+        document.getElementById("ml-explanation-text").textContent = data.explanation;
+    }
+
+    // Download trained model
+    document.getElementById("ml-download-model-btn").href = `/ml/download-model/${data.model_id}`;
+
     // Build the "try a prediction" form using the ORIGINAL feature identity
     // (categorical dropdowns with real category names, numeric inputs with
     // a real observed range) instead of raw encoded columns.

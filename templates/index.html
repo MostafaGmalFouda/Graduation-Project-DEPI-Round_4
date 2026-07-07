@@ -47,7 +47,7 @@
 
         <!-- ==================== MAIN APPLICATION ==================== -->
         <div id="main-app" class="app-stage" data-aos="fade-up" data-aos-duration="1000">
-           <br>
+            <br>
 
             <!-- Top Mode Bar (shared partial — identical markup/ids on every page) -->
             {% include "components/mode_bar.html" %}
@@ -118,7 +118,7 @@
                             BRight AI will preserve any free-text column instead of encoding it away.
                         </div>
                     </div>
-                     
+
 
 
                     <!-- Developer Controls -->
@@ -319,7 +319,9 @@
             </div>
 
         </div>
-
+        <button id="enterBtn" class="enter-btn" style="display:none;" onclick="window.location.href='/eda_result'">
+            <span>⚡ Enter</span>
+        </button>
         <!-- ==================== SIDEBAR NAVIGATION ==================== -->
         {% include "components/sidebar.html" %}
 
@@ -374,6 +376,14 @@
             errorBox.style.display = "none";
             if (typeof resetPipeline === 'function') resetPipeline();
             if (typeof clearExcludeColumnsUI === 'function') clearExcludeColumnsUI();
+
+            // The previous pipeline's report is gone now, so the "Enter"
+            // button shouldn't stay visible until a new pipeline finishes.
+            const enterBtn = document.getElementById('enterBtn');
+            if (enterBtn) {
+                enterBtn.classList.remove('show');
+                enterBtn.style.display = 'none';
+            }
         }
 
         // ==========================================
@@ -399,6 +409,14 @@
                 statusLabel.innerText = "ENGINE READY";
                 statusLabel.style.color = "var(--neon-c)";
                 if (typeof resetPipeline === 'function') resetPipeline();
+
+                // New file selected — the previous run's "Enter" button
+                // shouldn't stay visible until this pipeline finishes too.
+                const enterBtn = document.getElementById('enterBtn');
+                if (enterBtn) {
+                    enterBtn.classList.remove('show');
+                    enterBtn.style.display = 'none';
+                }
             } else {
                 fileStatus.innerText = "Select Data File (CSV/Excel)";
                 fileStatus.style.color = "";
@@ -526,8 +544,30 @@
                     `Clean Data: ${data.rows} rows × ${data.cols} columns`;
             }
             pipeResults.scrollIntoView({ behavior: 'smooth' });
+
+            // Reveal the "Enter" button only once the live pipeline has
+            // actually finished and the report is deployed — not before.
+            if (typeof onPipelineReady === 'function') onPipelineReady();
         }
 
+    </script>
+    <script>
+        function onPipelineReady() {
+            const btn = document.getElementById('enterBtn');
+            btn.style.display = 'inline-flex';
+            btn.classList.add('show');
+            // Make sure the person actually sees it — scroll it into view
+            // instead of leaving it hidden below the fold where it'd never
+            // get clicked.
+            setTimeout(() => {
+                btn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 400);
+        }
+
+        initEngine().then(() => {
+            onPipelineReady();
+        });
+       
     </script>
     <script src="{{ url_for('static', filename='scripts/chatbot.js') }}"></script>
 </body>

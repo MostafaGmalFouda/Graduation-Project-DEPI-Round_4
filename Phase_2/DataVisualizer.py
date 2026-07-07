@@ -139,6 +139,35 @@ class DataVisualizer:
         """Return list of column names matching the given schema type."""
         return [col for col, t in self.schema.items() if t == col_type]
     
+    def _low_cardinality_cat_cols(self, cat_cols: list, max_unique: int = 30) -> list:
+        """
+        Filter categorical columns down to ones actually safe for PAIRWISE
+        plots (stacked bar, cross-tab heatmap, violin-by-category, facet
+        grid, bubble color) -- i.e. real categories, not free text or
+        high-cardinality identifiers.
+
+        Without this, a free-text column (e.g. a preserved NLP review
+        column with hundreds/thousands of unique values) reaching
+        plot_cross_tabulation()/plot_stacked_bar() builds a crosstab sized
+        by category count with no cap -- e.g.
+        figsize=(max(8, len(ct.columns)), max(6, len(ct))) -- so 500 unique
+        text values means a ~500-inch-tall heatmap that takes forever (or
+        effectively hangs) to render and save. Single-column overviews
+        (_plot_single_categorical) stay safe on their own since they
+        already cap to value_counts().head(10), so this filter only needs
+        to apply to the pairwise/multi-column plots.
+        """
+        safe = []
+        n = len(self.data)
+        for col in cat_cols:
+            try:
+                nunique = self.data[col].nunique(dropna=True)
+            except TypeError:
+                continue  # unhashable column contents -- skip entirely
+            if nunique <= max_unique and (n == 0 or nunique / n < 0.5):
+                safe.append(col)
+        return safe
+    
     def _apply_dark_layout_plotly(self, fig):
         fig.update_layout(
             paper_bgcolor=BG_COLOR,

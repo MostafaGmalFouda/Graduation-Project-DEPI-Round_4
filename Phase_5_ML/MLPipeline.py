@@ -43,6 +43,7 @@ class MLPipeline:
             labels=labels,
         )
         importance = ModelEvaluator.feature_importance(model, feature_columns)
+        explanation = ModelEvaluator.explain(task_type, metrics, importance, target_column, model_name)
 
         plots = {}
         if task_type == "classification":
@@ -73,6 +74,7 @@ class MLPipeline:
             "feature_columns": feature_columns,
             "metrics": metrics,
             "feature_importance": importance[:15],
+            "explanation": explanation,
             "plots": plots,
             "train_size": len(self.df) - len(X_test),
             "test_size": len(X_test),

@@ -1,5 +1,7 @@
 from flask import Flask, render_template, request, jsonify, send_from_directory, send_file, Response, session
 import os
+import io
+import re
 import json
 import time
 import uuid
@@ -355,6 +357,28 @@ def eda():
     mode = session.get('mode', 'user')
     return render_template('index.html', active_page='eda', mode=mode)
 
+@app.route('/eda_result')
+def eda_page():
+    mode = session.get("mode", "user")
+    has_raw = get_raw_df() is not None
+    clean_df = get_clean_df()
+    has_clean = clean_df is not None
+
+    stats = None
+    if has_clean:
+        stats = {"rows": clean_df.shape[0], "cols": clean_df.shape[1]}
+
+    return render_template(
+        "eda_ui.html",
+        mode=mode,
+        active_page='eda',
+        has_raw=has_raw,
+        has_clean=has_clean,
+        stats=stats,
+        data_purpose=session.get('data_purpose', 'general'),
+        report_view_url=session.get('report_view_url'),
+        report_download_url=session.get('report_download_url'),
+    )
 
 @app.route('/process', methods=['POST'])
 def process():
@@ -763,12 +787,27 @@ ML_MODELS_FOLDER = os.path.join(BASE_DIR, 'Phase_5_ML', 'saved_models')
 os.makedirs(ML_MODELS_FOLDER, exist_ok=True)
 
 
+def _is_textlike_dtype(series: pd.Series) -> bool:
+    """
+    Robust text-column check across pandas versions.
+    Plain `dtype == object` breaks the moment a column is the newer pandas
+    `string` / StringDtype / ArrowDtype (e.g. pandas 3.x with
+    `future.infer_string` enabled, or any lib that flips that global
+    option) — those compare False against `object` even though they hold
+    text. `is_string_dtype` covers both worlds, so we OR the two checks.
+    """
+    try:
+        return series.dtype == object or pd.api.types.is_string_dtype(series)
+    except Exception:
+        return False
+
+
 def detect_text_columns(df: pd.DataFrame) -> list:
-    """Heuristic: object columns whose cells look like free text (reviews,
+    """Heuristic: text-like columns whose cells look like free text (reviews,
     comments) rather than short categorical labels."""
     text_cols = []
     for col in df.columns:
-        if df[col].dtype == object:
+        if _is_textlike_dtype(df[col]):
             sample = df[col].dropna().astype(str).head(200)
             if sample.empty:
                 continue
@@ -777,7 +816,6 @@ def detect_text_columns(df: pd.DataFrame) -> list:
             if avg_words and avg_words >= 4 and nunique_ratio > 0.05:
                 text_cols.append(col)
     return text_cols
-
 
 @app.route("/phase2")
 def phase2():
@@ -1114,18 +1152,40 @@ def chat():
 # ════════════════════════════════════════════════════════════
 # PHASE 3 — NLP Routes
 # ════════════════════════════════════════════════════════════
+def purpose_locks_out(target: str) -> bool:
+    """
+    Once a dataset has been explicitly set up for NLP or ML during the EDA
+    step, that choice is final for this dataset — the other path stays
+    locked so cleaning done for one (raw text kept vs. fully encoded)
+    is never silently reused for the other. 'general' locks nothing.
+    """
+    purpose = session.get('data_purpose', 'general')
+    return purpose in ('nlp', 'ml') and purpose != target
 
 @app.route('/nlp')
 def nlp_page():
     mode = session.get("mode", "user")
-    lock_message = purpose_lock_check('nlp')
-    return render_template(
-        "nlp_ui.html",
-        mode=mode,
-        active_page='nlp',
-        locked=bool(lock_message),
-        lock_message=lock_message,
-    )
+    locked = purpose_locks_out('nlp')
+
+    nlp_state = {"has_data": False}
+    if not locked:
+        df = get_raw_df()
+        if df is None:
+            df = get_clean_df()
+        if df is not None:
+            text_cols = detect_text_columns(df)
+            all_object_cols = [c for c in df.columns if _is_textlike_dtype(df[c])]
+            nlp_state = {
+                "has_data": True,
+                "rows": df.shape[0],
+                "text_columns": text_cols,
+                "all_text_like_columns": all_object_cols,
+                "candidates": text_cols if text_cols else all_object_cols,
+                "columns": list(df.columns),
+            }
+
+    return render_template("nlp_ui.html", mode=mode, active_page='nlp',
+                            locked=locked, nlp_state=nlp_state)
 
 
 @app.route('/nlp/status', methods=['GET'])
@@ -1260,14 +1320,30 @@ def nlp_download(filename):
 @app.route('/ml')
 def ml_page():
     mode = session.get("mode", "user")
-    lock_message = purpose_lock_check('ml')
-    return render_template(
-        "ml_ui.html",
-        mode=mode,
-        active_page='ml',
-        locked=bool(lock_message),
-        lock_message=lock_message,
-    )
+    locked = purpose_locks_out('ml')
+
+    ml_state = {"has_data": False}
+    if not locked:
+        df = get_clean_df()
+        if df is not None:
+            trainer = ModelTrainer(df)
+            guessed_target = trainer.guess_target_column()
+            task_type = trainer.detect_task_type(guessed_target)
+            ml_state = {
+                "has_data": True,
+                "rows": df.shape[0],
+                "cols": df.shape[1],
+                "columns": list(df.columns),
+                "guessed_target": guessed_target,
+                "guessed_task_type": task_type,
+                "available_models": {
+                    "classification": ModelFactory.available_models("classification"),
+                    "regression": ModelFactory.available_models("regression"),
+                },
+            }
+
+    return render_template("ml_ui.html", mode=mode, active_page='ml',
+                            locked=locked, ml_state=ml_state)
 
 
 @app.route('/ml/status', methods=['GET'])
@@ -1527,6 +1603,34 @@ def ml_view(filename):
 @app.route('/ml/download/<filename>')
 def ml_download(filename):
     return send_file(os.path.join(ML_PLOTS_FOLDER, filename), as_attachment=True)
+
+@app.route('/eda/download-data')
+def eda_download_data():
+    """Download the cleaned dataset (post Phase 1 pipeline) as a CSV file."""
+    df = get_clean_df()
+    if df is None:
+        return jsonify({"status": "error", "message": "No cleaned data available yet."}), 404
+    buf = io.BytesIO()
+    df.to_csv(buf, index=False)
+    buf.seek(0)
+    return send_file(
+        buf,
+        as_attachment=True,
+        download_name="cleaned_data.csv",
+        mimetype="text/csv",
+    )
+
+@app.route('/ml/download-model/<model_id>')
+def ml_download_model(model_id):
+    """Download the trained model (features, scaler, and metadata included) as a .pkl file."""
+    # model_id is a uuid4 hex fragment generated server-side (see
+    # MLPipeline._finish) — safe to use directly in a path, but guard
+    # against path traversal regardless since it comes from the URL.
+    safe_id = re.sub(r'[^a-zA-Z0-9]', '', model_id)
+    model_path = os.path.join(ML_MODELS_FOLDER, f"model_{safe_id}.pkl")
+    if not os.path.exists(model_path):
+        return jsonify({"status": "error", "message": "Model not found."}), 404
+    return send_file(model_path, as_attachment=True, download_name=f"model_{safe_id}.pkl")
 
 
 if __name__ == '__main__':
