@@ -629,6 +629,7 @@ def pipeline_stream():
     _text_unique_threshold = text_unique_threshold
     _encoding_method = encoding_method
     _outlier_method = outlier_method
+    _original_schema = original_schema
     _zscore_threshold = zscore_threshold
     _outlier_strategy = outlier_strategy
     _chat_ctx = _ctx
@@ -659,6 +660,7 @@ def pipeline_stream():
             yield send("Preprocessing", "Scanning for missing values (Nulls)...", 35)
             preprocessor.handle_nulls(threshold=_null_threshold, fill_strategy=_null_fill_strategy)
             _chat_ctx.log_eda("Handled missing values.")
+
             # Step 4 — Handle high-cardinality text columns  
             action_label = {"drop": "Dropping", "hash": "Hashing", "keep": "Keeping"}.get(_text_action, "Dropping")
             yield send(
@@ -684,6 +686,7 @@ def pipeline_stream():
             if _do_remove_duplicates:
                 preprocessor.remove_duplicates()
                 _chat_ctx.log_eda("Removed duplicate rows.")
+
             # Step 7 — Encoding
             if _encoding_method == "none":
                 # USER MODE — smart auto-encoding
@@ -698,23 +701,18 @@ def pipeline_stream():
                 _chat_ctx.log_eda("Encoded categorical columns.")
             time.sleep(0.4)
 
-            clean_data = preprocessor.get_clean_data()
 
             # Step 8 — Outlier detection & handling
             method_label = "IQR" if _outlier_method == "iqr" else f"Z-Score (threshold={_zscore_threshold})"
             strategy_label = "Capping" if _outlier_strategy == "cap" else "Removal"
             yield send("Outlier Detection", f"Analyzing statistical distribution ({method_label} / {strategy_label})...", 75)
-            outlier_handler = OutlierHandler(clean_data)
-            if _outlier_method == "iqr":
-                outlier_handler.detect_iqr()
-            else:
-                outlier_handler.detect_zscore(threshold=_zscore_threshold)
-
-            if _outlier_strategy == "cap":
-                clean_data = outlier_handler.cap_outliers(_outlier_method, zscore_threshold=_zscore_threshold)
-                _chat_ctx.log_eda("Handled outliers.")
-            else:
-                clean_data = outlier_handler.remove_outliers(_outlier_method, zscore_threshold=_zscore_threshold)
+            preprocessor.handle_outliers(
+                method=_outlier_method,
+                strategy=_outlier_strategy,
+                zscore_threshold=_zscore_threshold,
+                original_schema=_original_schema
+            )
+            clean_data = preprocessor.get_clean_data()
             time.sleep(0.6)
             
             # Step 9 — Generate report
@@ -893,10 +891,9 @@ def phase2_detect_columns():
             ctx.log_eda("Removed duplicate rows.")
             preprocessor.auto_encode()  
             ctx.log_eda("Encoded categorical columns.")
+            
+            preprocessor.handle_outliers(original_schema=original_schema)
             clean_data = preprocessor.get_clean_data()
-            outlier_handler = OutlierHandler(clean_data)
-            outlier_handler.detect_iqr()
-            clean_data = outlier_handler.cap_outliers()
             ctx.log_eda("Handled outliers.")
 
             # Save to session
