@@ -132,6 +132,17 @@ body {
 }
 .browse-content p { font-size: 13px; color: var(--txt-dim); }
 
+/* Long file names (e.g. "Datafiniti_Amazon_Consumer_Reviews_of_...csv")
+   must never break the fixed-width browse-card layout. #file-status
+   gets word-wrap safety as a fallback; the real fix is the JS-side
+   middle-truncation in index.html (see formatFileName). */
+#file-status {
+    max-width: 100%;
+    overflow-wrap: break-word;
+    word-break: break-word;
+    line-height: 1.5;
+}
+
 .action-btn, .submit-btn {
     padding: 12px 25px; 
     border-radius: 12px; 
@@ -495,6 +506,3 @@ select:hover { border-color: var(--neon-p); background: rgba(13, 12, 12, 0.5); }
   box-shadow: 0 0 30px rgba(179, 45, 212, 0.6);
   transform: translateY(-2px);
 }
-
-
-

@@ -345,6 +345,25 @@
         const sidebar = document.getElementById('sidebar');
 
         // ==========================================
+        // Helpers
+        // ==========================================
+        // Long file names (e.g. "Datafiniti_Amazon_Consumer_Reviews_of_
+        // Amazon_Products_May19.csv") break the fixed-width browse-card
+        // layout if shown in full. We shorten from the middle and keep
+        // the extension, and always keep the full name available via
+        // the `title` attribute (hover tooltip).
+        function formatFileName(name, maxLen = 34) {
+            if (name.length <= maxLen) return name;
+            const dotIndex = name.lastIndexOf('.');
+            const ext = dotIndex > -1 ? name.slice(dotIndex) : '';
+            const base = dotIndex > -1 ? name.slice(0, dotIndex) : name;
+            const keep = Math.max(maxLen - ext.length - 3, 4); // 3 chars for "..."
+            const front = Math.ceil(keep * 0.6);
+            const back = Math.floor(keep * 0.4);
+            return base.slice(0, front) + '...' + base.slice(base.length - back) + ext;
+        }
+
+        // ==========================================
         // File Management Functions
         // ==========================================
         async function clearSelectedFile() {
@@ -356,6 +375,7 @@
 
             fileInput.value = "";
             fileStatus.innerText = "Select Data File (CSV/Excel)";
+            fileStatus.removeAttribute('title');
             fileStatus.style.color = "";
             document.getElementById('clear-file-btn').style.display = "none";
             resultsArea.style.display = "none";
@@ -391,7 +411,9 @@
             errorBox.innerText = "";
 
             if (fileInput.files.length > 0) {
-                fileStatus.innerText = "Selected: " + fileInput.files[0].name;
+                const rawName = fileInput.files[0].name;
+                fileStatus.innerText = "Selected: " + formatFileName(rawName);
+                fileStatus.title = rawName; // full name on hover
                 fileStatus.style.color = "#14ffd0";
                 document.getElementById('clear-file-btn').style.display = "inline-block";
 

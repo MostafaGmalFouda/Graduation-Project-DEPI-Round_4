@@ -356,8 +356,17 @@ def eda():
     the mode has already been chosen by this point.
     """
     mode = session.get('mode', 'user')
-    return render_template('index.html', active_page='eda', mode=mode)
+    has_dataset = (
+        get_raw_df() is not None or
+        get_clean_df() is not None
+    )
 
+    return render_template(
+        "index.html",
+        active_page="eda",
+        mode=mode,
+        has_dataset=has_dataset
+    )
 @app.route('/eda_result')
 def eda_page():
     mode = session.get("mode", "user")
@@ -845,11 +854,14 @@ def phase2():
 
     mode = session.get("mode", "user")
 
+    has_dataset = get_raw_df() is not None or get_clean_df() is not None
+
     return render_template(
-        "phase2_ui.html",
-        mode=mode,
-        active_page='visualization'
-    )
+    "phase2_ui.html",
+    mode=mode,
+    active_page="visualization",
+    has_dataset=has_dataset
+)
 
 
 @app.route('/phase2/status', methods=['GET'])
@@ -1205,9 +1217,9 @@ def nlp_page():
                 "candidates": text_cols if text_cols else all_object_cols,
                 "columns": list(df.columns),
             }
-
+    has_dataset = get_raw_df() is not None or get_clean_df() is not None
     return render_template("nlp_ui.html", mode=mode, active_page='nlp',
-                            locked=locked, nlp_state=nlp_state)
+                            locked=locked, nlp_state=nlp_state,has_dataset=has_dataset)
 
 
 @app.route('/nlp/status', methods=['GET'])
@@ -1431,9 +1443,9 @@ def ml_page():
                     "regression": ModelFactory.available_models("regression"),
                 },
             }
-
+    has_dataset = get_raw_df() is not None or get_clean_df() is not None
     return render_template("ml_ui.html", mode=mode, active_page='ml',
-                            locked=locked, ml_state=ml_state)
+                            locked=locked, ml_state=ml_state,has_dataset=has_dataset)
 
 
 @app.route('/ml/status', methods=['GET'])
