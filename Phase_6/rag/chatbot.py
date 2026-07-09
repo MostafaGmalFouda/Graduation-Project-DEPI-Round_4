@@ -89,17 +89,32 @@ class Chatbot:
             no_data_msg = NO_DATA_MESSAGE_AR if detect_language(question) == "Arabic" else NO_DATA_MESSAGE_EN
             return no_data_msg
 
-        # Structural questions ("how many rows/columns", "missing values?")
-        # only need the "dataset" document type — narrows the search space
-        # instead of competing against NLP/visualization/model documents.
-        metadata_filter = {"type": "dataset"} if _STRUCTURAL_KEYWORDS.search(question) else None
-
         # Relevance-filtered: don't force-feed the model the 5 nearest
         # neighbors if none of them are actually close to the question.
-        results = vector.search_relevant(question, k=5, score_threshold=0.5, filter=metadata_filter)
+        # This always searches the WHOLE index (no type filter) — a
+        # structural word like "column" can appear inside a perfectly
+        # non-structural question ("which column has the most positive
+        # sentiment?"), and an exclusive filter would silently hide the
+        # NLP/visualization/model documents that actually answer it.
+        results = vector.search_relevant(question, k=5, score_threshold=0.5)
+
+        # For questions that DO look structural ("how many rows/columns",
+        # "missing values?"), ADD the "dataset" documents on top instead of
+        # replacing everything else — this boosts exact structural answers
+        # without excluding other document types the way a hard filter did.
+        if _STRUCTURAL_KEYWORDS.search(question):
+            dataset_results = vector.search_relevant(
+                question, k=5, score_threshold=0.5, filter={"type": "dataset"}
+            )
+            seen = {doc.page_content for doc in results}
+            for doc in dataset_results:
+                if doc.page_content not in seen:
+                    results.append(doc)
+                    seen.add(doc.page_content)
+
         if not results:
             # Fall back to unfiltered best-effort search rather than
-            # returning nothing, e.g. if the metadata filter over-narrowed.
+            # returning nothing, e.g. if score_threshold over-narrowed.
             results = vector.search(question, k=5)
         rag_context = "\n\n".join(doc.page_content for doc in results)
 
