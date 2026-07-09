@@ -6,6 +6,7 @@ import json
 import time
 import uuid
 import pickle
+from datetime import datetime, timezone
 import pandas as pd
 from werkzeug.utils import secure_filename
 import numpy as np
@@ -783,6 +784,30 @@ os.makedirs(ML_PLOTS_FOLDER, exist_ok=True)
 
 ML_MODELS_FOLDER = os.path.join(BASE_DIR, 'Phase_5_ML', 'saved_models')
 os.makedirs(ML_MODELS_FOLDER, exist_ok=True)
+
+# Lightweight registry for the explicit "Save Model" action in the ML GUI.
+# Every trained model is ALREADY written to ML_MODELS_FOLDER automatically
+# right after training (see MLPipeline._finish / ModelTrainer.save_model) —
+# this registry doesn't duplicate that write. It just lets the person give
+# a trained run a friendly name and confirms it's been "saved" in a way the
+# UI can show back to them (a minimal saved-models list), without touching
+# the training/eval flow itself.
+ML_MODEL_REGISTRY_PATH = os.path.join(ML_MODELS_FOLDER, 'registry.json')
+
+
+def _load_model_registry() -> dict:
+    if not os.path.exists(ML_MODEL_REGISTRY_PATH):
+        return {}
+    try:
+        with open(ML_MODEL_REGISTRY_PATH, 'r') as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def _save_model_registry(registry: dict) -> None:
+    with open(ML_MODEL_REGISTRY_PATH, 'w') as f:
+        json.dump(registry, f, indent=2)
 
 
 def _is_textlike_dtype(series: pd.Series) -> bool:
@@ -1696,6 +1721,70 @@ def ml_download_model(model_id):
     if not os.path.exists(model_path):
         return jsonify({"status": "error", "message": "Model not found."}), 404
     return send_file(model_path, as_attachment=True, download_name=f"model_{safe_id}.pkl")
+
+
+@app.route('/ml/save-model', methods=['POST'])
+def ml_save_model():
+    """
+    Explicit "Save Model" action from the ML results GUI (Developer Mode
+    and User Mode both hit this — it's mode-agnostic). The trained model
+    artifact (.pkl bundling the model, scaler, feature_columns, task_type,
+    target_column, labels) is already written to disk automatically right
+    after training via MLPipeline._finish -> ModelTrainer.save_model, so
+    this endpoint never re-trains or re-pickles anything. Its only job is
+    to: confirm that artifact genuinely exists, attach a friendly display
+    name (or a sensible generated default) plus a small metadata snapshot
+    to ML_MODEL_REGISTRY_PATH, and give the UI an explicit success/failure
+    signal it can show the person, all without touching the training or
+    evaluation flow.
+    """
+    model_id = (request.form.get("model_id") or "").strip()
+    if not model_id:
+        return jsonify({"status": "error", "message": "Missing model_id — train a model first."}), 400
+
+    # model_id is expected to be the uuid4 hex fragment MLPipeline._finish
+    # generates; stripped down regardless since it ends up in a filesystem
+    # path.
+    safe_id = re.sub(r'[^a-zA-Z0-9]', '', model_id)
+    model_path = os.path.join(ML_MODELS_FOLDER, f"model_{safe_id}.pkl")
+    if not os.path.exists(model_path):
+        return jsonify({"status": "error", "message": "Model artifact not found on disk. Train it again before saving."}), 404
+
+    try:
+        bundle = ModelTrainer.load_model(model_path)
+    except Exception as e:
+        return jsonify({"status": "error", "message": f"Could not read the trained model file: {e}"}), 500
+
+    custom_name = (request.form.get("model_name") or "").strip()
+    default_name = f"{bundle.get('model_name', 'model')}_{bundle.get('target_column', safe_id)}"
+    display_name = custom_name or default_name
+
+    registry = _load_model_registry()
+    registry[safe_id] = {
+        "model_id": safe_id,
+        "display_name": display_name,
+        "model_name": bundle.get("model_name"),
+        "task_type": bundle.get("task_type"),
+        "target_column": bundle.get("target_column"),
+        "feature_count": len(bundle.get("feature_columns") or []),
+        "saved_at": datetime.now(timezone.utc).isoformat(),
+        "filename": f"model_{safe_id}.pkl",
+    }
+
+    try:
+        _save_model_registry(registry)
+    except Exception as e:
+        return jsonify({"status": "error", "message": f"Could not persist the saved-models list: {e}"}), 500
+
+    return jsonify({"status": "success", "model_id": safe_id, "saved_name": display_name})
+
+
+@app.route('/ml/saved-models', methods=['GET'])
+def ml_saved_models():
+    """Lists every model explicitly saved via the 'Save Model' button, most recently saved first."""
+    registry = _load_model_registry()
+    items = sorted(registry.values(), key=lambda r: r.get("saved_at", ""), reverse=True)
+    return jsonify({"status": "success", "models": items})
 
 
 if __name__ == '__main__':

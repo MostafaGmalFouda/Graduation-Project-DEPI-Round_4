@@ -2,14 +2,16 @@ import numpy as np
 from sklearn.metrics import (
     accuracy_score, precision_recall_fscore_support, confusion_matrix,
     mean_absolute_error, mean_squared_error, r2_score,
+    balanced_accuracy_score, matthews_corrcoef, average_precision_score,
 )
+from sklearn.preprocessing import label_binarize
 
 
 class ModelEvaluator:
     """Computes and formats metrics for a fitted model's test-set predictions."""
 
     @staticmethod
-    def evaluate_classification(y_true, y_pred, labels=None) -> dict:
+    def evaluate_classification(y_true, y_pred, labels=None, y_proba=None) -> dict:
             labels = labels or sorted(set(list(y_true) + list(y_pred)))
             acc = accuracy_score(y_true, y_pred)
             precision, recall, f1, _ = precision_recall_fscore_support(
@@ -44,13 +46,20 @@ class ModelEvaluator:
             # class is worth flagging — weighted accuracy alone won't show it.
             is_imbalanced = imbalance_ratio < 0.4
 
-            return {
+            # ── Matthews Correlation Coefficient ─────────────────────────────
+            # A single balanced measure (range -1 to 1) computed straight from
+            # the confusion matrix — unlike accuracy/F1 it stays meaningful even
+            # under heavy class imbalance, and works for binary or multiclass.
+            mcc = matthews_corrcoef(y_true, y_pred)
+
+            metrics = {
                 "task_type": "classification",
                 "accuracy": round(float(acc), 4),
                 "balanced_accuracy": round(float(balanced_accuracy_score(y_true, y_pred)), 4),
                 "precision": round(float(precision), 4),
                 "recall": round(float(recall), 4),
                 "f1_score": round(float(f1), 4),
+                "mcc": round(float(mcc), 4),
                 "confusion_matrix": cm.tolist(),
                 "labels": [str(l) for l in labels],
                 "per_class": per_class,
@@ -58,6 +67,38 @@ class ModelEvaluator:
                 "imbalance_ratio": imbalance_ratio,
                 "is_imbalanced": is_imbalanced,
             }
+
+            # ── PR-AUC (average precision) ───────────────────────────────────
+            # Needs predicted probabilities, not just hard labels, so this is
+            # only computed when the caller supplies y_proba (e.g. from
+            # model.predict_proba(X_test)). Silently omitted otherwise rather
+            # than erroring, since not every model exposes probabilities.
+            if y_proba is not None:
+                y_proba = np.asarray(y_proba)
+                if len(labels) == 2:
+                    # Binary case: use the probability of the positive
+                    # (second/greater) class.
+                    pos_label = labels[1]
+                    y_true_bin = np.array([1 if y == pos_label else 0 for y in y_true])
+                    pos_scores = y_proba[:, 1] if y_proba.ndim > 1 else y_proba
+                    metrics["pr_auc"] = round(float(average_precision_score(y_true_bin, pos_scores)), 4)
+                else:
+                    # Multiclass: one-vs-rest PR-AUC per class, plus a
+                    # support-weighted average (consistent with how
+                    # precision/recall/F1 are aggregated above).
+                    y_true_bin = label_binarize(y_true, classes=labels)
+                    pr_auc_per_class = {}
+                    weighted_sum = 0.0
+                    for i, lbl in enumerate(labels):
+                        ap = average_precision_score(y_true_bin[:, i], y_proba[:, i])
+                        pr_auc_per_class[str(lbl)] = round(float(ap), 4)
+                        weighted_sum += ap * support_per[i]
+                    total_support = sum(support_per)
+                    weighted_pr_auc = weighted_sum / total_support if total_support > 0 else 0.0
+                    metrics["pr_auc"] = round(float(weighted_pr_auc), 4)
+                    metrics["pr_auc_per_class"] = pr_auc_per_class
+
+            return metrics
 
     @staticmethod
     def evaluate_regression(y_true, y_pred) -> dict:
@@ -74,9 +115,9 @@ class ModelEvaluator:
         }
 
     @staticmethod
-    def evaluate(task_type: str, y_true, y_pred, labels=None) -> dict:
+    def evaluate(task_type: str, y_true, y_pred, labels=None, y_proba=None) -> dict:
         if task_type == "classification":
-            return ModelEvaluator.evaluate_classification(y_true, y_pred, labels=labels)
+            return ModelEvaluator.evaluate_classification(y_true, y_pred, labels=labels, y_proba=y_proba)
         return ModelEvaluator.evaluate_regression(y_true, y_pred)
 
     @staticmethod
@@ -110,6 +151,7 @@ class ModelEvaluator:
         if task_type == "classification":
             acc = metrics["accuracy"]
             bal_acc = metrics["balanced_accuracy"]
+            mcc = metrics.get("mcc")
             parts.append(
                 f"The {model_label} model predicts '{target_column}' correctly {acc:.0%} of the time "
                 f"on data it never saw during training."
@@ -128,6 +170,19 @@ class ModelEvaluator:
                 )
                 parts.append(gap_note)
 
+                if mcc is not None:
+                    mcc_quality = (
+                        "strong" if mcc >= 0.7 else
+                        "moderate" if mcc >= 0.4 else
+                        "weak" if mcc >= 0.1 else
+                        "little-to-no"
+                    )
+                    parts.append(
+                        f"The Matthews Correlation Coefficient (MCC) is {mcc:.2f}, indicating {mcc_quality} "
+                        "agreement between predictions and reality once chance and class imbalance are "
+                        "accounted for — a more reliable single number than accuracy on skewed data like this."
+                    )
+
                 worst = min(metrics["per_class"], key=lambda c: c["f1_score"])
                 if worst["f1_score"] < 0.6:
                     parts.append(
@@ -139,6 +194,25 @@ class ModelEvaluator:
                 parts.append(
                     f"Class sizes in the test set are reasonably balanced, so accuracy ({acc:.0%}) and "
                     f"balanced accuracy ({bal_acc:.0%}) are close together and both trustworthy."
+                )
+                if mcc is not None:
+                    parts.append(
+                        f"The Matthews Correlation Coefficient of {mcc:.2f} confirms this — it stays close "
+                        "to accuracy-based measures when classes are balanced."
+                    )
+
+            if "pr_auc" in metrics:
+                pr_auc = metrics["pr_auc"]
+                pr_quality = (
+                    "excellent" if pr_auc >= 0.9 else
+                    "good" if pr_auc >= 0.7 else
+                    "moderate" if pr_auc >= 0.5 else
+                    "weak"
+                )
+                parts.append(
+                    f"The precision-recall AUC (PR-AUC) is {pr_auc:.2f}, reflecting {pr_quality} ability to "
+                    "rank true positives above false positives across different decision thresholds — "
+                    "especially informative here since accuracy alone can be misleading on imbalanced data."
                 )
         else:
             r2 = metrics["r2_score"]
