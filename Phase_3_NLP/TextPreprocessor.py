@@ -51,6 +51,9 @@ yourself yourselves it's im
 # dataset-specific — add those separately per-project if needed).
 EXTRA_STOPWORDS = set("""
 one use used using would like get got also really much
+just even well see saw make made know knew think thought
+going go said say us thing things time though still way another
+can could
 """.split())
 
 STOPWORDS = STOPWORDS.union(EXTRA_STOPWORDS)
@@ -59,6 +62,16 @@ _HTML_TAG_RE = re.compile(r"<[^>]+>")
 _URL_RE = re.compile(r"https?://\S+|www\.\S+")
 _NON_ALPHA_RE = re.compile(r"[^a-zA-Z\u0600-\u06FF\s]")
 _MULTISPACE_RE = re.compile(r"\s+")
+# Keeps the apostrophe INSIDE the token during tokenization, so contractions
+# like "don't" / "wasn't" / "wouldn't" still read as "don't" / "wasn't" /
+# "wouldn't" at the moment they're checked against STOPWORDS (which stores
+# those exact apostrophe forms). The old approach stripped all punctuation
+# (via _NON_ALPHA_RE) BEFORE the stopword check ever ran, so "don't" became
+# "don t" first and could never match "don't" in STOPWORDS - leaving
+# meaningless leftover fragments like "don", "wasn", "isn", "wouldn", "hasn"
+# polluting word frequency, keywords, n-grams and the word cloud (especially
+# bad on review-style text, which is full of negations).
+_WORD_RE = re.compile(r"[a-zA-Z\u0600-\u06FF']+")
 
 
 class TextPreprocessor:
@@ -87,17 +100,28 @@ class TextPreprocessor:
         text = _HTML_TAG_RE.sub(" ", text)
         text = _URL_RE.sub(" ", text)
         text = text.lower()
-        text = _NON_ALPHA_RE.sub(" ", text)
-        text = _MULTISPACE_RE.sub(" ", text).strip()
+
+        # Tokenize keeping apostrophes attached (e.g. "don't" stays "don't")
+        # so contractions can be matched against STOPWORDS *before* the
+        # apostrophe is stripped. Stripping punctuation first would turn
+        # "don't" into "don t", which never matches "don't" in STOPWORDS.
+        raw_tokens = _WORD_RE.findall(text)
+
         if remove_stopwords:
             tokens = []
-            for t in text.split():
+            for raw in raw_tokens:
+                if raw in STOPWORDS:
+                    continue
+                # Safe to drop the apostrophe now that the contraction check
+                # above has already run (e.g. "dogs'" -> "dogs").
+                t = raw.strip("'")
                 # min length 2 -> 2, so 2-letter noise like "im"/"ok" is dropped too
-                if t in STOPWORDS or len(t) <= 2:
+                if not t or t in STOPWORDS or len(t) <= 2:
                     continue
                 tokens.append(_lemmatize(t))
             return " ".join(tokens)
-        return text
+
+        return " ".join(raw.strip("'") for raw in raw_tokens)
 
     def clean_all(self, remove_stopwords: bool = True) -> list:
         return [self.clean_text(t, remove_stopwords=remove_stopwords) for t in self.texts]

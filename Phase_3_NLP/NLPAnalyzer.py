@@ -23,6 +23,20 @@ mediocre waste worse fail failed failure broken useless
 frustrating frustrated angry disgusting weak lousy dreadful painful
 """.split())
 
+# Words/contractions that negate whatever sentiment word follows within
+# _NEGATION_WINDOW tokens. Without this, "isn't good" / "wasn't great" /
+# "didn't enjoy" score as POSITIVE (the scorer only ever sees "good" /
+# "great" / "enjoy" and has no idea they were negated) — this single-handedly
+# skews any review-style dataset (full of "isn't", "wasn't", "didn't")
+# heavily toward positive, since negative reviews still use positive words,
+# just negated ("wasn't great", "isn't worth it").
+_NEGATORS = set("""
+not no never neither nor cannot can't dont don't doesn't didn't isn't
+aren't wasn't weren't hasn't haven't hadn't wouldn't couldn't shouldn't
+won't hardly barely rarely scarcely
+""".split())
+_NEGATION_WINDOW = 3  # how many tokens ahead a negator can still flip
+
 
 class NLPAnalyzer:
     """
@@ -91,8 +105,28 @@ class NLPAnalyzer:
         results = []
         for text in self.texts:
             tokens = re.findall(r"[a-zA-Z']+", text.lower())
-            pos = sum(1 for t in tokens if t in _POSITIVE_WORDS)
-            neg = sum(1 for t in tokens if t in _NEGATIVE_WORDS)
+            pos = 0
+            neg = 0
+            negate_countdown = 0  # >0 means "the next sentiment word we hit gets flipped"
+            for tok in tokens:
+                if tok in _NEGATORS:
+                    negate_countdown = _NEGATION_WINDOW
+                    continue
+
+                is_pos = tok in _POSITIVE_WORDS
+                is_neg = tok in _NEGATIVE_WORDS
+                if is_pos or is_neg:
+                    flip = negate_countdown > 0
+                    if is_pos:
+                        neg += 1 if flip else 0
+                        pos += 0 if flip else 1
+                    else:
+                        pos += 1 if flip else 0
+                        neg += 0 if flip else 1
+                    negate_countdown = 0  # negation "spends" itself on the first sentiment word it reaches
+                elif negate_countdown > 0:
+                    negate_countdown -= 1
+
             if pos > neg:
                 label = "positive"
             elif neg > pos:
