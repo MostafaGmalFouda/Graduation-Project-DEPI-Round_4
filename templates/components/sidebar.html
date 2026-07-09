@@ -13,6 +13,7 @@
     </div>
 
     <nav class="sidebar-nav">
+
         <div class="sidebar-section-label">Modules</div>
 
         <a class="sidebar-item {{ 'active' if active_page == 'eda' }}" id="nav-eda" href="/eda">
@@ -55,6 +56,14 @@
     </nav>
 
     <div class="sidebar-footer">
+        <!-- {% if sidebar_has_clean %} -->
+       
+        <a class="sidebar-collapse-btn sidebar-enter-btn " id="nav-enter-results" href="/eda_result"   style="display: {{ 'flex' if sidebar_has_clean else 'none' }};" title="Processed Dataset Overview">
+            <i class="fas fa-bolt"></i>
+            <span class="item-label">Go to Results</span>
+        </a>
+        
+        <!-- {% endif %} -->
         <div class="sidebar-collapse-btn sidebar-danger-btn" id="sidebar-clear-data-btn" title="Permanently clear the current dataset and start over">
             <i class="fas fa-trash"></i>
             <span class="item-label">Clear Data</span>

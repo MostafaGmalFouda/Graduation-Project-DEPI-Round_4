@@ -336,6 +336,30 @@ def describe_dataset_highlights(df: pd.DataFrame) -> str:
     return " ".join(parts)
 
 
+# ── Shared sidebar context ────────────────────────────────────────────────────
+
+@app.context_processor
+def inject_sidebar_context():
+    """
+    Injected into EVERY template render automatically — components/sidebar.html
+    is included on every phase page (EDA, Visualization, NLP, ML), and it needs
+    to know whether a finished ("clean") dataset exists so it can show the
+    "Enter Results" shortcut, without every single route having to remember to
+    pass that flag in manually.
+
+    Source of truth is the clean DataFrame actually existing on disk
+    (get_clean_df), NOT a session boolean — pipeline_done can't be flipped to
+    True from inside the SSE generator (it runs outside the request context),
+    so the pickle file's existence is the only thing that's always accurate.
+    This also means it naturally disappears after /clear-data, /session/reset,
+    or a brand new /process upload, since all three remove or replace the
+    clean_df_path — no extra bookkeeping needed.
+    """
+    return {
+        'sidebar_has_clean': get_clean_df() is not None
+    }
+
+
 # ── Routes ────────────────────────────────────────────────────────────────────
 
 @app.route('/')

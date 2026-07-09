@@ -139,6 +139,32 @@ body:has(#sidebar.collapsed) #content-area {
     cursor: not-allowed;
     opacity: 0.45;
 }
+
+/* "Enter Results" — persistent CTA that appears in the sidebar the moment a
+   clean dataset exists (see app.py inject_sidebar_context / sidebar_has_clean).
+   Deliberately styled apart from the plain nav items below it, since it's an
+   action ("go see what finished"), not a navigation section. */
+/* .sidebar-enter-btn {
+    background: linear-gradient(135deg, var(--neon-p), #7000ff);
+    color: #fff;
+    font-weight: 700;
+    box-shadow: 0 8px 20px rgba(163, 51, 255, 0.35);
+    margin-bottom: 8px;
+}
+.sidebar-enter-btn i {
+    color: #fff;
+    text-shadow: 0 0 10px rgba(255,255,255,0.6);
+}
+.sidebar-enter-btn:hover {
+    background: linear-gradient(135deg, #b455ff, var(--neon-p));
+    color: #fff;
+    transform: translateY(-1px);
+    box-shadow: 0 10px 26px rgba(163, 51, 255, 0.5);
+} */
+
+
+
+
 .soon-badge {
     margin-left: auto;
     font-size: 8.5px;
@@ -190,8 +216,8 @@ body:has(#sidebar.collapsed) #content-area {
 .sidebar-collapse-btn:hover { color: var(--neon-c); border-color: var(--neon-c); background: rgba(20,255,208,0.06); }
 
 .sidebar-danger-btn {
-    color: #f43f5e;
-    border-color: rgba(244,63,94,0.25);
+    /* color: #f43f5e;
+    border-color: rgba(244,63,94,0.25); */
 }
 .sidebar-danger-btn:hover {
     color: #f43f5e;
@@ -1066,3 +1092,17 @@ body.mode-developer #start-btn.purple-btn:hover {
 #content-area {
     width: 1400px !important;
 }
+
+
+.sidebar-enter-btn {
+    /* color: #c747fa;
+    border-color: rgba(220, 63, 244, 0.25); */
+    text-decoration: none;
+}
+.sidebar-enter-btn:hover {
+    color: #cb52fb;
+    border-color: #af3ff4;
+    background: rgba(181, 63, 244, 0.08);
+}
+
+

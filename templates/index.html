@@ -314,9 +314,6 @@
             </div>
 
         </div>
-        <button id="enterBtn" class="enter-btn" style="display:none;" onclick="window.location.href='/eda_result'">
-            <span>⚡ Enter</span>
-        </button>
         <!-- ==================== SIDEBAR NAVIGATION ==================== -->
         {% include "components/sidebar.html" %}
 
@@ -393,14 +390,6 @@
             errorBox.style.display = "none";
             if (typeof resetPipeline === 'function') resetPipeline();
             if (typeof clearExcludeColumnsUI === 'function') clearExcludeColumnsUI();
-
-            // The previous pipeline's report is gone now, so the "Enter"
-            // button shouldn't stay visible until a new pipeline finishes.
-            const enterBtn = document.getElementById('enterBtn');
-            if (enterBtn) {
-                enterBtn.classList.remove('show');
-                enterBtn.style.display = 'none';
-            }
         }
 
         // ==========================================
@@ -430,14 +419,6 @@
                     statusLabel.style.color = "var(--neon-c)";
                 }
                 if (typeof resetPipeline === 'function') resetPipeline();
-
-                // New file selected — the previous run's "Enter" button
-                // shouldn't stay visible until this pipeline finishes too.
-                const enterBtn = document.getElementById('enterBtn');
-                if (enterBtn) {
-                    enterBtn.classList.remove('show');
-                    enterBtn.style.display = 'none';
-                }
             } else {
                 fileStatus.innerText = "Select Data File (CSV/Excel)";
                 fileStatus.style.color = "";
@@ -499,6 +480,7 @@
             } finally {
                 startBtn.disabled = false;
             }
+
         };
 
         // ==========================================
@@ -569,30 +551,29 @@
                     `Clean Data: ${data.rows} rows × ${data.cols} columns`;
             }
             pipeResults.scrollIntoView({ behavior: 'smooth' });
+            const resultsBtn = document.getElementById("nav-enter-results");
 
-            // Reveal the "Enter" button only once the live pipeline has
-            // actually finished and the report is deployed — not before.
-            if (typeof onPipelineReady === 'function') onPipelineReady();
+            if (resultsBtn) {
+                resultsBtn.style.display = "flex";
+            }
         }
 
     </script>
     <script>
-        function onPipelineReady() {
-            const btn = document.getElementById('enterBtn');
-            btn.style.display = 'inline-flex';
-            btn.classList.add('show');
-            // Make sure the person actually sees it — scroll it into view
-            // instead of leaving it hidden below the fold where it'd never
-            // get clicked.
-            setTimeout(() => {
-                btn.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }, 400);
-        }
+        // "Enter Results" used to be a button revealed here once the pipeline
+        // finished. It now lives permanently in the sidebar instead (see
+        // components/sidebar.html + app.py's sidebar_has_clean), so it
+        // shows up the instant a clean dataset exists on the backend — no
+        // matter which page you're on — and disappears automatically on
+        // Clear Data / refresh / a new upload. This function is kept as a
+        // harmless no-op so initEngine()'s existing .then() call below
+        // doesn't need touching.
+        function onPipelineReady() { }
 
         initEngine().then(() => {
             onPipelineReady();
         });
-       
+
     </script>
     <script src="{{ url_for('static', filename='scripts/chatbot.js') }}"></script>
 </body>
