@@ -36,11 +36,34 @@ class MLPipeline:
     def _finish(self, task_type, model_name, model, scaler, X_test, y_test, feature_columns, target_column, extra=None):
         preds = model.predict(X_test)
         labels = sorted(pd.Series(list(y_test) + list(preds)).astype(str).unique()) if task_type == "classification" else None
+
+        # PR-AUC needs predicted probabilities, not just hard labels. Every
+        # classifier in ModelFactory exposes predict_proba (SVC is built
+        # with probability=True specifically so this works), but this stays
+        # defensive — if it's ever missing or errors for any reason, PR-AUC
+        # is just omitted from metrics rather than breaking training.
+        y_proba = None
+        if task_type == "classification" and hasattr(model, "predict_proba"):
+            try:
+                proba_raw = model.predict_proba(X_test)
+                model_classes = [str(c) for c in model.classes_]
+                # Reindex probability columns into the same order as
+                # `labels` — evaluate_classification assumes column i of
+                # y_proba lines up with labels[i]. If a label shows up in
+                # y_test/preds that the fitted model never actually saw as
+                # a class, we skip PR-AUC entirely rather than guess.
+                col_index = {c: i for i, c in enumerate(model_classes)}
+                if all(lbl in col_index for lbl in labels):
+                    y_proba = proba_raw[:, [col_index[lbl] for lbl in labels]]
+            except Exception:
+                y_proba = None
+
         metrics = ModelEvaluator.evaluate(
             task_type,
             [str(v) for v in y_test] if task_type == "classification" else y_test,
             [str(v) for v in preds] if task_type == "classification" else preds,
             labels=labels,
+            y_proba=y_proba,
         )
         importance = ModelEvaluator.feature_importance(model, feature_columns)
         explanation = ModelEvaluator.explain(task_type, metrics, importance, target_column, model_name)

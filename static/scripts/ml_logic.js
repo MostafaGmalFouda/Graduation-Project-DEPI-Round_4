@@ -418,12 +418,33 @@ function renderMLResults(data) {
     }
 
     if (metrics.task_type === "classification") {
-        cards.innerHTML = `
-            <div class="metric-card"><div class="metric-value">${(metrics.accuracy * 100).toFixed(1)}%</div><div class="metric-label">Accuracy</div></div>
-            <div class="metric-card"><div class="metric-value">${metrics.f1_score}</div><div class="metric-label">F1 Score</div></div>
-            <div class="metric-card"><div class="metric-value">${metrics.precision}</div><div class="metric-label">Precision</div></div>
-            <div class="metric-card"><div class="metric-value">${metrics.recall}</div><div class="metric-label">Recall</div></div>
-        `;
+        // Balanced Accuracy / MCC / PR-AUC come from the evaluation
+        // backend when available. PR-AUC specifically depends on the
+        // trained model exposing predict_proba — not guaranteed for
+        // every model/run — so it's rendered as "Not available" instead
+        // of being assumed to always exist.
+        const metricCards = [
+            metricCard(`${(metrics.accuracy * 100).toFixed(1)}%`, "Accuracy"),
+            metricCard(metrics.f1_score, "F1 Score"),
+            metricCard(metrics.precision, "Precision"),
+            metricCard(metrics.recall, "Recall"),
+            metricCard(
+                metrics.balanced_accuracy !== undefined && metrics.balanced_accuracy !== null
+                    ? `${(metrics.balanced_accuracy * 100).toFixed(1)}%` : "N/A",
+                "Balanced Accuracy"
+            ),
+            metricCard(metrics.mcc !== undefined && metrics.mcc !== null ? metrics.mcc : "N/A", "MCC"),
+        ];
+
+        if (metrics.pr_auc !== undefined && metrics.pr_auc !== null) {
+            const prAucLabel = metrics.pr_auc_per_class ? "PR-AUC (weighted avg)" : "PR-AUC";
+            metricCards.push(metricCard(metrics.pr_auc, prAucLabel));
+        } else {
+            metricCards.push(metricCard("Not available", "PR-AUC", true));
+        }
+
+        cards.innerHTML = metricCards.join("");
+        renderClassBalancePanel(metrics);
     } else {
         cards.innerHTML = `
             <div class="metric-card"><div class="metric-value">${metrics.r2_score}</div><div class="metric-label">R² Score</div></div>
@@ -431,7 +452,16 @@ function renderMLResults(data) {
             <div class="metric-card"><div class="metric-value">${metrics.mae}</div><div class="metric-label">MAE</div></div>
             <div class="metric-card"><div class="metric-value">${metrics.mse}</div><div class="metric-label">MSE</div></div>
         `;
+        const imbalancePanel = document.getElementById("ml-imbalance-panel");
+        if (imbalancePanel) imbalancePanel.style.display = "none";
     }
+
+    // Save Model UX: give the field a sensible default name for this run,
+    // and clear any leftover status from a previous save/training run.
+    const saveNameInput = document.getElementById("ml-save-model-name");
+    if (saveNameInput) saveNameInput.value = `${data.model_name}_${data.target_column}`;
+    const saveStatus = document.getElementById("ml-save-model-status");
+    if (saveStatus) saveStatus.textContent = "";
 
     const plotsGrid = document.getElementById("ml-plots-grid");
     plotsGrid.innerHTML = "";
@@ -452,6 +482,91 @@ function renderMLResults(data) {
     // (categorical dropdowns with real category names, numeric inputs with
     // a real observed range) instead of raw encoded columns.
     renderPredictForm(data.feature_columns);
+}
+
+function metricCard(value, label, muted = false) {
+    return `<div class="metric-card"${muted ? ' style="opacity:0.6;"' : ""}><div class="metric-value">${value}</div><div class="metric-label">${label}</div></div>`;
+}
+
+// Populates the "Class Balance" panel (imbalance warning + per-class
+// precision/recall/F1/support table, plus a per-class PR-AUC column when
+// the backend returned pr_auc_per_class for a multiclass run). Safe to
+// call for any classification result — regression results never reach
+// here, and a classification result with no per_class breakdown simply
+// hides the panel instead of rendering an empty table.
+function renderClassBalancePanel(metrics) {
+    const panel = document.getElementById("ml-imbalance-panel");
+    const warning = document.getElementById("ml-imbalance-warning");
+    const table = document.getElementById("ml-per-class-table");
+    if (!panel || !table) return;
+
+    if (!metrics.per_class || metrics.per_class.length === 0) {
+        panel.style.display = "none";
+        return;
+    }
+
+    panel.style.display = "block";
+    if (warning) warning.style.display = metrics.is_imbalanced ? "block" : "none";
+
+    const hasPrAucPerClass = !!metrics.pr_auc_per_class;
+    const headerCols = ["Class", "Precision", "Recall", "F1 Score", "Support"];
+    if (hasPrAucPerClass) headerCols.push("PR-AUC");
+
+    const headerRow = `<tr>${headerCols.map(h => `<th>${h}</th>`).join("")}</tr>`;
+    const bodyRows = metrics.per_class.map(row => {
+        let cells = `<td>${row.label}</td><td>${row.precision}</td><td>${row.recall}</td><td>${row.f1_score}</td><td>${row.support}</td>`;
+        if (hasPrAucPerClass) {
+            const prAuc = metrics.pr_auc_per_class[row.label];
+            cells += `<td>${prAuc !== undefined ? prAuc : "—"}</td>`;
+        }
+        return `<tr>${cells}</tr>`;
+    }).join("");
+
+    table.innerHTML = headerRow + bodyRows;
+}
+
+document.getElementById("ml-save-model-btn")?.addEventListener("click", saveTrainedModel);
+
+// "Save Model" persists a friendly name + small metadata snapshot for the
+// already-trained model artifact (the .pkl itself is written to disk
+// automatically right after training — see MLPipeline._finish on the
+// backend). Works identically in User Mode and Developer Mode since both
+// funnel through the same /ml/train -> ML.lastResult.model_id.
+async function saveTrainedModel() {
+    if (!ML.lastResult) {
+        showToast("Train a model first.", "error");
+        return;
+    }
+    const btn = document.getElementById("ml-save-model-btn");
+    const statusEl = document.getElementById("ml-save-model-status");
+    const nameInput = document.getElementById("ml-save-model-name");
+    const customName = (nameInput?.value || "").trim();
+
+    if (btn) btn.disabled = true;
+    if (statusEl) statusEl.textContent = "Saving…";
+
+    const formData = new FormData();
+    formData.append("model_id", ML.lastResult.model_id);
+    if (customName) formData.append("model_name", customName);
+
+    try {
+        const res = await fetch("/ml/save-model", { method: "POST", body: formData });
+        const data = await res.json();
+        if (btn) btn.disabled = false;
+
+        if (data.status !== "success") {
+            if (statusEl) statusEl.textContent = "";
+            showToast(data.message || "Could not save the model.", "error");
+            return;
+        }
+
+        if (statusEl) statusEl.textContent = `Saved as "${data.saved_name}" ✓`;
+        showToast("Model saved.", "success");
+    } catch (e) {
+        if (btn) btn.disabled = false;
+        if (statusEl) statusEl.textContent = "";
+        showToast("Save request failed: " + e.message, "error");
+    }
 }
 
 function round2(n) {

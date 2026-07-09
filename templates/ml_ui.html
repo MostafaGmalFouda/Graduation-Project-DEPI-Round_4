@@ -218,6 +218,17 @@
                         </div>
                     </div>
 
+                    <div class="run-all-wrapper" id="ml-save-model-wrapper"
+                        style="margin-bottom:10px; display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:center;">
+                        <input type="text" id="ml-save-model-name" class="form-select"
+                            placeholder="Model name (optional)" style="max-width:260px; width:auto;">
+                        <button class="run-all-btn" id="ml-save-model-btn"
+                            style="width:auto; padding:12px 22px;">
+                            <i class="fas fa-floppy-disk"></i> Save Model
+                        </button>
+                        <span id="ml-save-model-status" style="font-size:13px; color:var(--txt-dim);"></span>
+                    </div>
+
                     <div class="run-all-wrapper" id="ml-download-model-wrapper" style="margin-bottom:10px;">
                         <a class="run-all-btn" id="ml-download-model-btn" href="#" download
                             style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center; gap:8px; background:transparent; border:1px solid var(--txt-dim); color:var(--txt);">
