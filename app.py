@@ -1235,6 +1235,7 @@ def nlp_analyze():
     ngram_max = int(data.get("ngram_max", 1))
     top_n = int(data.get("top_n", 20))
     include_sentiment = data.get("include_sentiment", "true") == "true"
+    include_trigrams = data.get("include_trigrams", "false") == "true"
 
     try:
         analyzer = NLPAnalyzer(df, text_column)
@@ -1244,6 +1245,7 @@ def nlp_analyze():
             ngram_range=(1, max(1, ngram_max)),
             top_n=top_n,
             include_sentiment=include_sentiment,
+            include_trigrams=include_trigrams,
         )
 
         # Unique suffix per run: without this, every analysis overwrote the
@@ -1264,7 +1266,34 @@ def nlp_analyze():
             "word_cloud": os.path.basename(
                 viz.plot_wordcloud(result["word_frequency"], filename=f"wordcloud_{run_id}.png")
             ),
+            "bigrams": os.path.basename(
+                viz.plot_bigrams(result["bigrams"], filename=f"bigrams_{run_id}.png")
+            ),
+            "document_length": os.path.basename(
+                viz.plot_document_length_histogram(result["document_lengths"], filename=f"doclength_{run_id}.png")
+            ),
         }
+
+        if "trigrams" in result:
+            plots["trigrams"] = os.path.basename(
+                viz.plot_trigrams(result["trigrams"], filename=f"trigrams_{run_id}.png")
+            )
+
+        before_after = result["before_after"]
+        plots["vocab_before_after"] = os.path.basename(
+            viz.plot_vocab_before_after(
+                before_after["before"]["vocabulary_size"],
+                before_after["after"]["vocabulary_size"],
+                filename=f"vocab_ba_{run_id}.png",
+            )
+        )
+        plots["avg_words_before_after"] = os.path.basename(
+            viz.plot_avg_words_before_after(
+                before_after["before"]["avg_word_count"],
+                before_after["after"]["avg_word_count"],
+                filename=f"avgwords_ba_{run_id}.png",
+            )
+        )
 
         summary_line = ""
         if include_sentiment:
@@ -1308,6 +1337,45 @@ def nlp_view(filename):
 @app.route('/nlp/download/<filename>')
 def nlp_download(filename):
     return send_file(os.path.join(NLP_PLOTS_FOLDER, filename), as_attachment=True)
+
+
+@app.route('/nlp/export', methods=['POST'])
+def nlp_export():
+    """Download the dataset with a new '<text_column>_clean' column added
+    (stopwords removed, lemmatized) — the original column is left untouched,
+    so this is safe to feed into Phase 5 (ML) or keep as a report artifact."""
+    lock_message = purpose_lock_check('nlp')
+    if lock_message:
+        return jsonify({"status": "locked", "message": lock_message})
+
+    data = request.form
+    text_column = data.get("text_column")
+    if not text_column:
+        return jsonify({"status": "error", "message": "text_column is required."}), 400
+
+    df = get_raw_df()
+    if df is None:
+        df = get_clean_df()
+    if df is None:
+        return jsonify({"status": "error", "message": "No data available. Run Phase 1 first."}), 400
+    if text_column not in df.columns:
+        return jsonify({"status": "error", "message": f"Column '{text_column}' not found."}), 400
+
+    try:
+        analyzer = NLPAnalyzer(df, text_column)
+        out_df = analyzer.export_dataframe()
+        buf = io.BytesIO()
+        out_df.to_csv(buf, index=False)
+        buf.seek(0)
+        return send_file(
+            buf,
+            as_attachment=True,
+            download_name="processed_dataset.csv",
+            mimetype="text/csv",
+        )
+    except Exception as e:
+        print("NLP Export Error:", e)
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 
 # ════════════════════════════════════════════════════════════

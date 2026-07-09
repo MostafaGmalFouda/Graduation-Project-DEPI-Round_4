@@ -113,6 +113,14 @@
                                     <option value="30">30</option>
                                 </select>
                             </div>
+                            <div class="form-group">
+                                <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                                    <input type="checkbox" id="nlp-dev-trigrams">
+                                    Include top trigrams
+                                </label>
+                                <p class="hint">Bigrams are always included. Trigrams add a 3-word phrase chart
+                                    (optional — noisier on small datasets).</p>
+                            </div>
                         </div>
 
                         <div class="chart-config-card">
@@ -144,11 +152,27 @@
 
                 <!-- ═════════════════ RESULTS ═════════════════ -->
                 <div id="nlp-results" style="display:none;">
-                    <div class="section-divider"><span>Results</span></div>
+                    <div class="section-divider">
+                        <span>Results</span>
+                    </div>
+                    <div class="run-all-wrapper" style="justify-content:flex-end;">
+                        <button class="run-all-btn secondary-btn" id="nlp-export-btn">
+                            <i class="fas fa-file-export"></i> Export Cleaned Dataset
+                        </button>
+                    </div>
 
                     <div class="metric-row" id="nlp-stat-cards"></div>
 
+                    <div class="summary-panel" id="nlp-before-after-panel" style="display:none;">
+                        <div class="summary-panel-header">
+                            <h3><i class="fas fa-broom"></i> Before vs After Cleaning</h3>
+                        </div>
+                        <div id="nlp-before-after-body"></div>
+                    </div>
+
                     <div class="viz-dashboard-grid" id="nlp-plots-grid"></div>
+                    <br>
+                    <br>
 
                     <div class="summary-panel" id="nlp-sentiment-summary" style="display:none;">
                         <div class="summary-panel-header">

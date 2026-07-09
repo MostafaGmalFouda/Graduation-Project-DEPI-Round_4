@@ -241,3 +241,4 @@ class  ReportGenerator:
     
         else:
             raise ValueError("mode must be 'basic' or 'detailed'")
+        

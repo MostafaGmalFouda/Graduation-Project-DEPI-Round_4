@@ -90,22 +90,22 @@
     <div class="overview-box">
         <div class="box">
             <b>Rows</b><br>
-            400
+            28332
         </div>
 
         <div class="box">
             <b>Columns</b><br>
-            3
+            24
         </div>
 
         <div class="box">
             <b>Total Missing</b><br>
-            0
+            81082
         </div>
 
         <div class="box">
             <b>Duplicates</b><br>
-            33
+            0
         </div>
     </div>
 </div>
@@ -117,59 +117,59 @@
   <thead>
     <tr style="text-align: right;">
       <th></th>
-      <th>Age</th>
-      <th>Salary</th>
-      <th>Purchased</th>
+      <th>reviews.id</th>
+      <th>reviews.numHelpful</th>
+      <th>reviews.rating</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <th>count</th>
-      <td>400.000000</td>
-      <td>400.000000</td>
-      <td>400.000000</td>
+      <td>4.100000e+01</td>
+      <td>16115.000000</td>
+      <td>28332.000000</td>
     </tr>
     <tr>
       <th>mean</th>
-      <td>37.655000</td>
-      <td>69742.500000</td>
-      <td>0.357500</td>
+      <td>1.840066e+08</td>
+      <td>0.529321</td>
+      <td>4.514048</td>
     </tr>
     <tr>
       <th>std</th>
-      <td>10.482877</td>
-      <td>34096.960282</td>
-      <td>0.479864</td>
+      <td>2.337036e+07</td>
+      <td>9.345017</td>
+      <td>0.934957</td>
     </tr>
     <tr>
       <th>min</th>
-      <td>18.000000</td>
-      <td>15000.000000</td>
+      <td>1.116244e+08</td>
       <td>0.000000</td>
+      <td>1.000000</td>
     </tr>
     <tr>
       <th>25%</th>
-      <td>29.750000</td>
-      <td>43000.000000</td>
+      <td>1.843344e+08</td>
       <td>0.000000</td>
+      <td>4.000000</td>
     </tr>
     <tr>
       <th>50%</th>
-      <td>37.000000</td>
-      <td>70000.000000</td>
+      <td>1.885078e+08</td>
       <td>0.000000</td>
+      <td>5.000000</td>
     </tr>
     <tr>
       <th>75%</th>
-      <td>46.000000</td>
-      <td>88000.000000</td>
-      <td>1.000000</td>
+      <td>1.988160e+08</td>
+      <td>0.000000</td>
+      <td>5.000000</td>
     </tr>
     <tr>
       <th>max</th>
-      <td>60.000000</td>
-      <td>150000.000000</td>
-      <td>1.000000</td>
+      <td>2.085304e+08</td>
+      <td>621.000000</td>
+      <td>5.000000</td>
     </tr>
   </tbody>
 </table>
@@ -180,7 +180,7 @@
     <h2>❗ Missing Values Analysis</h2>
 
     <div class="warning">
-        🔍 Column with most missing: <b>Age</b> (0.0%)
+        🔍 Column with most missing: <b>reviews.didPurchase</b> (99.96823379923761%)
     </div>
 
     <table border="1" class="dataframe">
@@ -193,19 +193,124 @@
   </thead>
   <tbody>
     <tr>
-      <th>Age</th>
+      <th>id</th>
       <td>0</td>
-      <td>0.0</td>
+      <td>0.000000</td>
     </tr>
     <tr>
-      <th>Salary</th>
+      <th>dateAdded</th>
       <td>0</td>
-      <td>0.0</td>
+      <td>0.000000</td>
     </tr>
     <tr>
-      <th>Purchased</th>
+      <th>dateUpdated</th>
       <td>0</td>
-      <td>0.0</td>
+      <td>0.000000</td>
+    </tr>
+    <tr>
+      <th>name</th>
+      <td>0</td>
+      <td>0.000000</td>
+    </tr>
+    <tr>
+      <th>asins</th>
+      <td>0</td>
+      <td>0.000000</td>
+    </tr>
+    <tr>
+      <th>brand</th>
+      <td>0</td>
+      <td>0.000000</td>
+    </tr>
+    <tr>
+      <th>categories</th>
+      <td>0</td>
+      <td>0.000000</td>
+    </tr>
+    <tr>
+      <th>primaryCategories</th>
+      <td>0</td>
+      <td>0.000000</td>
+    </tr>
+    <tr>
+      <th>imageURLs</th>
+      <td>0</td>
+      <td>0.000000</td>
+    </tr>
+    <tr>
+      <th>keys</th>
+      <td>0</td>
+      <td>0.000000</td>
+    </tr>
+    <tr>
+      <th>manufacturer</th>
+      <td>0</td>
+      <td>0.000000</td>
+    </tr>
+    <tr>
+      <th>manufacturerNumber</th>
+      <td>0</td>
+      <td>0.000000</td>
+    </tr>
+    <tr>
+      <th>reviews.date</th>
+      <td>0</td>
+      <td>0.000000</td>
+    </tr>
+    <tr>
+      <th>reviews.dateSeen</th>
+      <td>0</td>
+      <td>0.000000</td>
+    </tr>
+    <tr>
+      <th>reviews.didPurchase</th>
+      <td>28323</td>
+      <td>99.968234</td>
+    </tr>
+    <tr>
+      <th>reviews.doRecommend</th>
+      <td>12246</td>
+      <td>43.223211</td>
+    </tr>
+    <tr>
+      <th>reviews.id</th>
+      <td>28291</td>
+      <td>99.855287</td>
+    </tr>
+    <tr>
+      <th>reviews.numHelpful</th>
+      <td>12217</td>
+      <td>43.120853</td>
+    </tr>
+    <tr>
+      <th>reviews.rating</th>
+      <td>0</td>
+      <td>0.000000</td>
+    </tr>
+    <tr>
+      <th>reviews.sourceURLs</th>
+      <td>0</td>
+      <td>0.000000</td>
+    </tr>
+    <tr>
+      <th>reviews.text</th>
+      <td>0</td>
+      <td>0.000000</td>
+    </tr>
+    <tr>
+      <th>reviews.title</th>
+      <td>0</td>
+      <td>0.000000</td>
+    </tr>
+    <tr>
+      <th>reviews.username</th>
+      <td>5</td>
+      <td>0.017648</td>
+    </tr>
+    <tr>
+      <th>sourceURLs</th>
+      <td>0</td>
+      <td>0.000000</td>
     </tr>
   </tbody>
 </table>
@@ -218,28 +323,28 @@
   <thead>
     <tr style="text-align: right;">
       <th></th>
-      <th>Age</th>
-      <th>Salary</th>
-      <th>Purchased</th>
+      <th>reviews.id</th>
+      <th>reviews.numHelpful</th>
+      <th>reviews.rating</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <th>Age</th>
+      <th>reviews.id</th>
       <td>1.000000</td>
-      <td>0.155238</td>
-      <td>0.622454</td>
+      <td>-0.553529</td>
+      <td>0.074941</td>
     </tr>
     <tr>
-      <th>Salary</th>
-      <td>0.155238</td>
+      <th>reviews.numHelpful</th>
+      <td>-0.553529</td>
       <td>1.000000</td>
-      <td>0.362083</td>
+      <td>-0.041006</td>
     </tr>
     <tr>
-      <th>Purchased</th>
-      <td>0.622454</td>
-      <td>0.362083</td>
+      <th>reviews.rating</th>
+      <td>0.074941</td>
+      <td>-0.041006</td>
       <td>1.000000</td>
     </tr>
   </tbody>
@@ -251,7 +356,15 @@
     <h2>💡 Key Insights</h2>
 
     
-        <div class="insight">✔ Dataset contains 33 duplicate rows</div>
+        <div class="insight">✔ Column 'reviews.didPurchase' has 99.97% missing values</div>
+    
+        <div class="insight">✔ Column 'reviews.doRecommend' has 43.22% missing values</div>
+    
+        <div class="insight">✔ Column 'reviews.id' has 99.86% missing values</div>
+    
+        <div class="insight">✔ Column 'reviews.numHelpful' has 43.12% missing values</div>
+    
+        <div class="insight">✔ Column 'reviews.username' has 0.02% missing values</div>
     
 </div>
 

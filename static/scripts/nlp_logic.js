@@ -77,6 +77,8 @@ async function runNLP(auto) {
         formData.append("top_n", document.getElementById("nlp-dev-topn").value);
         const includeSentiment = document.getElementById("nlp-dev-sentiment").checked;
         formData.append("include_sentiment", includeSentiment ? "true" : "false");
+        const includeTrigrams = document.getElementById("nlp-dev-trigrams").checked;
+        formData.append("include_trigrams", includeTrigrams ? "true" : "false");
     }
 
     try {
@@ -109,6 +111,31 @@ function renderNLPResults(data) {
         <div class="metric-card"><div class="metric-value">${stats.vocabulary_size}</div><div class="metric-label">Vocabulary Size</div></div>
         <div class="metric-card"><div class="metric-value">${stats.empty_documents}</div><div class="metric-label">Empty Docs</div></div>
     `;
+
+    const ba = data.before_after;
+    const baPanel = document.getElementById("nlp-before-after-panel");
+    const baBody = document.getElementById("nlp-before-after-body");
+    if (ba) {
+        const rows = ba.samples.map(s => `
+            <tr>
+                <td class="ba-original">${escapeHtml(s.original)}</td>
+                <td class="ba-cleaned">${escapeHtml(s.cleaned)}</td>
+            </tr>
+        `).join("");
+        baBody.innerHTML = `
+            <div class="metric-row" style="margin-bottom:16px;">
+                <div class="metric-card"><div class="metric-value">${ba.before.vocabulary_size} → ${ba.after.vocabulary_size}</div><div class="metric-label">Vocabulary Size</div></div>
+                <div class="metric-card"><div class="metric-value">${ba.before.avg_word_count} → ${ba.after.avg_word_count}</div><div class="metric-label">Avg Words / Doc</div></div>
+            </div>
+            <table class="ba-table">
+                <thead><tr><th>Original</th><th>Cleaned</th></tr></thead>
+                <tbody>${rows}</tbody>
+            </table>
+        `;
+        baPanel.style.display = "block";
+    } else {
+        baPanel.style.display = "none";
+    }
 
     const plotsGrid = document.getElementById("nlp-plots-grid");
     plotsGrid.innerHTML = "";
@@ -153,6 +180,43 @@ function plotCard(title, viewUrl, downloadUrl) {
         </div>
     `;
 }
+
+function escapeHtml(str) {
+    const div = document.createElement("div");
+    div.textContent = str ?? "";
+    return div.innerHTML;
+}
+
+document.getElementById("nlp-export-btn")?.addEventListener("click", async () => {
+    const textColumn = document.getElementById("nlp-text-column").value;
+    if (!textColumn) {
+        showToast("Choose a text column first.", "error");
+        return;
+    }
+    const formData = new FormData();
+    formData.append("text_column", textColumn);
+
+    try {
+        const res = await fetch("/nlp/export", { method: "POST", body: formData });
+        if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            showToast(data.message || "Export failed.", "error");
+            return;
+        }
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "processed_dataset.csv";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+        showToast("Cleaned dataset exported.", "success");
+    } catch (e) {
+        showToast("Export failed: " + e.message, "error");
+    }
+});
 
 function showToast(message, type = "success") {
     let toast = document.getElementById("nlp-toast");

@@ -1,6 +1,32 @@
 import re
 import pandas as pd
 
+# NLTK lemmatization: reduces word variants (running/runs/ran -> run) so
+# frequency/keyword counts reflect the REAL concept instead of splitting it
+# across multiple surface forms. This is the fix for noisy/irrelevant
+# keywords. Falls back to no-op (identity) if nltk/wordnet isn't available,
+# so the app doesn't crash if the corpus hasn't been downloaded yet.
+try:
+    import nltk
+    from nltk.stem import WordNetLemmatizer
+
+    def _ensure_wordnet():
+        for resource in ("corpora/wordnet", "corpora/omw-1.4"):
+            try:
+                nltk.data.find(resource)
+            except LookupError:
+                nltk.download(resource.split("/")[-1], quiet=True)
+
+    _ensure_wordnet()
+    _lemmatizer = WordNetLemmatizer()
+except Exception:
+    _lemmatizer = None
+
+
+def _lemmatize(word: str) -> str:
+    return _lemmatizer.lemmatize(word) if _lemmatizer else word
+
+
 # Small, dependency-free English stopword list (avoids needing nltk downloads
 # at runtime). Good enough for frequency / keyword analysis purposes.
 STOPWORDS = set("""
@@ -18,22 +44,16 @@ until up very was wasn't we we'd we'll we're we've were weren't what
 what's when when's where where's which while who who's whom why why's
 with won't would wouldn't you you'd you'll you're you've your yours
 yourself yourselves it's im
-
-one two three also get gets got getting go goes going gone went like
-likes liked just really actually quite pretty rather even well much many
-lot lots way ways thing things something anything everything nothing
-someone anyone everyone else still yet already almost always never ever
-maybe perhaps though although however therefore thus hence upon within
-without across among around behind beside besides towards toward via
-per etc us let us make made making makes take takes taking took put puts
-putting say says said saying tell tells told telling see sees seeing saw
-seen look looks looked looking know knows knew knowing think thinks
-thought thinking come comes came coming want wants wanted wanting use
-uses used using find finds found finding give gives gave giving
-new old first last long own am is can could would should will shall must
-don doesn didn wasn isn aren weren wouldn couldn shouldn won hasn haven
-ve re ll nt
 """.split())
+
+# Generic filler words that dominate keyword lists without adding analytical
+# value, regardless of domain (unlike, say, "amazon" or "shipping" which are
+# dataset-specific — add those separately per-project if needed).
+EXTRA_STOPWORDS = set("""
+one use used using would like get got also really much
+""".split())
+
+STOPWORDS = STOPWORDS.union(EXTRA_STOPWORDS)
 
 _HTML_TAG_RE = re.compile(r"<[^>]+>")
 _URL_RE = re.compile(r"https?://\S+|www\.\S+")
@@ -47,7 +67,8 @@ class TextPreprocessor:
 
     Handles both English and Arabic text reasonably (keeps Arabic unicode
     range, strips HTML/urls/punctuation/digits, lowercases Latin text,
-    collapses whitespace). Stopword removal only applies to English.
+    collapses whitespace). Stopword removal AND lemmatization only apply to
+    English (WordNetLemmatizer silently no-ops on non-English tokens).
     """
 
     def __init__(self, texts):
@@ -69,7 +90,12 @@ class TextPreprocessor:
         text = _NON_ALPHA_RE.sub(" ", text)
         text = _MULTISPACE_RE.sub(" ", text).strip()
         if remove_stopwords:
-            tokens = [t for t in text.split() if t not in STOPWORDS and len(t) > 1]
+            tokens = []
+            for t in text.split():
+                # min length 2 -> 2, so 2-letter noise like "im"/"ok" is dropped too
+                if t in STOPWORDS or len(t) <= 2:
+                    continue
+                tokens.append(_lemmatize(t))
             return " ".join(tokens)
         return text
 
