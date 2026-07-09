@@ -46,9 +46,34 @@ async function initNLP() {
         } else {
             hint.innerHTML = `<span class="col-chip">No obvious free-text column detected — pick one manually above.</span>`;
         }
+
+        restoreLastNLPRun();
     } catch (e) {
         showToast("Could not reach the server: " + e.message, "error");
     }
+}
+
+// Rehydrates the page from NLP_INITIAL.last_run (server-rendered on every
+// /nlp GET — see app.py). This is what makes navigating away and back show
+// the same text column, the same Developer Mode field choices, and the same
+// results without re-running the analysis. Only cleared by a real refresh
+// (session cookie is untouched by navigation) or a brand new dataset upload.
+function restoreLastNLPRun() {
+    const lastRun = NLP_INITIAL && NLP_INITIAL.last_run;
+    if (!lastRun || !lastRun.params || !lastRun.result) return;
+
+    const p = lastRun.params;
+    const select = document.getElementById("nlp-text-column");
+    if (select && p.text_column) select.value = p.text_column;
+
+    document.getElementById("nlp-dev-method").value = p.method || "tfidf";
+    document.getElementById("nlp-dev-ngram").value = String(p.ngram_max || 1);
+    document.getElementById("nlp-dev-topn").value = String(p.top_n || 20);
+    document.getElementById("nlp-dev-sentiment").checked = !!p.include_sentiment;
+    document.getElementById("nlp-dev-trigrams").checked = !!p.include_trigrams;
+
+    renderNLPResults(lastRun.result);
+    document.getElementById("nlp-results").style.display = "block";
 }
 
 document.getElementById("nlp-auto-run-btn")?.addEventListener("click", () => runNLP(true));

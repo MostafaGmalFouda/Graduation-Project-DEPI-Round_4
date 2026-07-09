@@ -95,6 +95,34 @@ def get_raw_df() -> pd.DataFrame:
     return load_session_df(path)
 
 
+def get_pipeline_log() -> list:
+    """
+    Read back the pipeline stage/console log written by the last completed
+    /pipeline-stream run for this session (see the `send()` closure there).
+    Lets /eda rebuild the exact same stages panel + console log after
+    navigating away and back, instead of it only existing during the one
+    live SSE run. Returns [] if no run has happened yet (or the file is
+    missing/corrupt for any reason — never let a bad log break the page).
+    """
+    path = session.get('pipeline_log_path')
+    if not path or not os.path.exists(path):
+        return []
+    entries = []
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    entries.append(json.loads(line))
+                except (ValueError, TypeError):
+                    continue
+    except OSError:
+        return []
+    return entries
+
+
 # ── Data purpose helpers (drives text-column cleaning + Phase locking) ───────
 
 def get_data_purpose() -> str:
@@ -171,13 +199,17 @@ def clear_session_data():
     kept in the Flask session. Also drops the chatbot's cached vector index
     for this session so old answers can never leak into the next dataset.
     """
-    for key in ('raw_df_path', 'clean_df_path', 'schema_path', 'context_path'):
+    for key in ('raw_df_path', 'clean_df_path', 'schema_path', 'context_path', 'pipeline_log_path',
+                'nlp_state_path', 'ml_state_path', 'phase2_state_path'):
         path = session.pop(key, None)
         if path and os.path.exists(path):
             try:
                 os.remove(path)
             except OSError:
                 pass
+    session.pop('dataset_filename', None)
+    session.pop('report_view_url', None)
+    session.pop('report_download_url', None)
     session['pipeline_done'] = False
     # A fresh dataset means the previous data_purpose lock no longer applies —
     # whatever purpose gets chosen on the NEXT pipeline run should decide
@@ -205,6 +237,56 @@ def save_column_schema(schema: dict) -> str:
     with open(path, 'w') as f:
         json.dump(schema, f)
     return path
+
+
+# ── Generic per-page state persistence (Phase 3/5/2 "stay as I left it") ────
+# Same pattern as pipeline_log_path / schema_path above: the Flask session
+# cookie only holds a PATH, the actual JSON blob lives on disk. This is what
+# lets /nlp, /ml and /phase2 rebuild the exact UI + results a person left
+# behind after navigating to another page and back — without needing a
+# refresh or a re-run — while still resetting cleanly on a real refresh
+# (session cookie survives that) or a brand new upload (clear_session_data
+# below deletes these files and pops the session keys).
+
+def save_json_blob(prefix: str, data: dict) -> str:
+    fname = f"{prefix}_{uuid.uuid4().hex}.json"
+    path = os.path.join(SESSION_DATA_FOLDER, fname)
+    with open(path, 'w', encoding='utf-8') as f:
+        json.dump(data, f, default=str)
+    return path
+
+
+def load_json_blob(path: str):
+    if not path or not os.path.exists(path):
+        return None
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return None
+
+
+def get_page_state(session_key: str) -> dict:
+    """Read back the whole saved-state dict for a page (empty dict if none)."""
+    return load_json_blob(session.get(session_key)) or {}
+
+
+def update_page_state(session_key: str, entry_key: str, entry_value: dict, filename_prefix: str):
+    """
+    Merge one entry (keyed by e.g. a chart_type, or just '_last') into this
+    page's saved-state dict and persist it. Reuses the SAME file on disk
+    across calls (looked up via the path already in session) instead of
+    writing a new file every run, so repeatedly generating charts/analyses
+    doesn't leak files on disk.
+    """
+    path = session.get(session_key)
+    state = load_json_blob(path) or {}
+    state[entry_key] = entry_value
+    if not path:
+        path = os.path.join(SESSION_DATA_FOLDER, f"{filename_prefix}_{uuid.uuid4().hex}.json")
+        session[session_key] = path
+    with open(path, 'w', encoding='utf-8') as f:
+        json.dump(state, f, default=str)
 
 
 def load_column_schema(path: str) -> dict:
@@ -327,6 +409,144 @@ def describe_group_stats(df: pd.DataFrame, num_col: str, cat_col: str) -> str:
         return f"Could not compute group statistics: {e}"
 
 
+TARGET_NAME_HINTS = [
+    'target', 'label', 'class', 'y', 'outcome', 'churn', 'result',
+    'status', 'category', 'rating', 'score', 'price', 'sales',
+    'survived', 'default', 'fraud', 'response', 'diagnosis', 'purchase',
+]
+
+
+def analyze_columns_summary(df: pd.DataFrame, max_cols: int = 12) -> dict:
+    """
+    Quick per-column glance (type, cardinality, a one-line stat) for the
+    EDA insights page. Capped at max_cols so wide datasets don't blow up
+    the page — the rest are just counted.
+    """
+    rows = []
+    cols = list(df.columns)
+    for col in cols[:max_cols]:
+        s = df[col]
+        is_numeric = s.dtype.kind in "iufc"
+        unique_count = int(s.nunique(dropna=True))
+        if is_numeric:
+            col_type = "Numeric"
+            try:
+                detail = f"mean {s.mean():.2f} · std {s.std():.2f} · range [{s.min():.2f}, {s.max():.2f}]"
+            except Exception:
+                detail = f"{unique_count} unique values"
+        else:
+            col_type = "Categorical / Text"
+            mode_vals = s.mode(dropna=True)
+            top_val = str(mode_vals.iloc[0]) if not mode_vals.empty else "—"
+            if len(top_val) > 28:
+                top_val = top_val[:25] + "..."
+            detail = f"most common: '{top_val}' · {unique_count} unique values"
+        rows.append({"name": col, "type": col_type, "detail": detail})
+
+    return {"rows": rows, "shown": len(rows), "total": len(cols), "hidden": max(len(cols) - len(rows), 0)}
+
+
+def suggest_target_and_model(df: pd.DataFrame) -> dict:
+    """
+    Lightweight, heuristic-only target-column and model-family suggestion —
+    NOT a trained recommendation. It pattern-matches on column names,
+    cardinality, and dataset size to point the user toward a sensible
+    starting point before they head into the ML phase; always framed as a
+    starting hint, not a guarantee.
+    """
+    result = {
+        "target_col": None, "target_reason": "",
+        "task_type": None, "models": [], "model_reason": "",
+    }
+    if df is None or df.shape[1] == 0:
+        return result
+
+    cols = list(df.columns)
+
+    # 1) Name-based match first — most reliable signal when present.
+    target_col = None
+    for hint in TARGET_NAME_HINTS:
+        for c in cols:
+            lc = c.lower()
+            if lc == hint or lc.endswith("_" + hint) or lc.startswith(hint + "_"):
+                target_col = c
+                break
+        if target_col:
+            break
+
+    if target_col:
+        result["target_reason"] = (
+            f"Column name '{target_col}' strongly suggests it's the outcome you'd want to predict."
+        )
+    else:
+        # 2) Fall back to a low-cardinality column (classic classification-
+        # target shape), else the numeric column most correlated with the
+        # rest (classic regression-target shape).
+        candidate = None
+        for c in cols:
+            nun = df[c].nunique(dropna=True)
+            if 2 <= nun <= 10:
+                candidate = c
+                break
+        if candidate:
+            target_col = candidate
+            result["target_reason"] = (
+                f"'{target_col}' has only {df[target_col].nunique()} distinct values — "
+                "a common shape for a classification target."
+            )
+        else:
+            numeric_df = df.select_dtypes(include="number")
+            if numeric_df.shape[1] >= 2:
+                try:
+                    avg_corr = numeric_df.corr(numeric_only=True).abs().mean().sort_values(ascending=False)
+                except Exception:
+                    avg_corr = pd.Series(dtype=float)
+                if not avg_corr.empty:
+                    target_col = avg_corr.index[0]
+                    result["target_reason"] = (
+                        f"'{target_col}' is, on average, the most correlated numeric column with the "
+                        "rest of the dataset — often a sign it's the value the others help explain."
+                    )
+        if not target_col and cols:
+            target_col = cols[-1]
+            result["target_reason"] = (
+                "No strong signal in the column names or shapes — defaulting to the last column. "
+                "Please confirm this is actually the outcome you want to predict."
+            )
+
+    result["target_col"] = target_col
+    if target_col is None:
+        return result
+
+    # 3) Task type + model family, based on target shape and dataset size.
+    nunique = df[target_col].nunique(dropna=True)
+    is_numeric = df[target_col].dtype.kind in "iufc"
+    n_rows = df.shape[0]
+
+    if is_numeric and nunique > 10:
+        result["task_type"] = "Regression"
+        if n_rows < 1000:
+            result["models"] = ["Linear Regression", "Ridge / Lasso Regression", "Decision Tree Regressor"]
+            result["model_reason"] = "Smaller dataset — simpler regressors are less likely to overfit."
+        else:
+            result["models"] = ["Random Forest Regressor", "Gradient Boosting Regressor", "Linear Regression (baseline)"]
+            result["model_reason"] = "Enough rows to support ensemble/boosted regressors for stronger performance."
+    elif nunique == 2:
+        result["task_type"] = "Binary Classification"
+        if n_rows < 1000:
+            result["models"] = ["Logistic Regression", "Decision Tree", "K-Nearest Neighbors"]
+            result["model_reason"] = "Smaller dataset — simpler classifiers tend to generalize better."
+        else:
+            result["models"] = ["Random Forest Classifier", "Gradient Boosting Classifier", "Logistic Regression (baseline)"]
+            result["model_reason"] = "Enough rows for ensemble/boosted classifiers to outperform simpler baselines."
+    else:
+        result["task_type"] = "Multiclass Classification"
+        result["models"] = ["Random Forest Classifier", "Gradient Boosting Classifier", "Multinomial Logistic Regression"]
+        result["model_reason"] = f"{nunique} distinct classes — tree-based ensembles handle multiclass well out of the box."
+
+    return result
+
+
 def describe_dataset_highlights(df: pd.DataFrame) -> str:
     """A short, factual overview used for the summary/automatic dashboards."""
     numeric_df = df.select_dtypes(include="number")
@@ -334,6 +554,75 @@ def describe_dataset_highlights(df: pd.DataFrame) -> str:
     if numeric_df.shape[1] >= 2:
         parts.append("Correlations: " + describe_pairwise_correlation(df))
     return " ".join(parts)
+
+
+def build_eda_insights(raw_df: pd.DataFrame, clean_df: pd.DataFrame, data_purpose: str) -> dict:
+    """
+    Real, data-driven summary for the /eda_result page: what the dataset
+    actually looks like after cleaning, what the pipeline changed compared
+    to the raw upload, and a plain-language recommendation for what to do
+    next — computed straight from the dataframes instead of being hardcoded.
+    """
+    insights = {
+        "highlights": "",
+        "rows_before": None, "rows_after": None, "rows_removed": 0,
+        "cols_before": None, "cols_after": None, "cols_removed": 0,
+        "missing_before": 0, "missing_after": 0,
+        "numeric_cols": 0, "categorical_cols": 0,
+        "recommendation": "",
+        "column_summary": None,
+        "target_suggestion": None,
+    }
+    if clean_df is None:
+        return insights
+
+    insights["highlights"] = describe_dataset_highlights(clean_df)
+    insights["column_summary"] = analyze_columns_summary(clean_df)
+    insights["target_suggestion"] = suggest_target_and_model(clean_df)
+    insights["rows_after"] = int(clean_df.shape[0])
+    insights["cols_after"] = int(clean_df.shape[1])
+    insights["missing_after"] = int(clean_df.isna().sum().sum())
+    insights["numeric_cols"] = int(clean_df.select_dtypes(include="number").shape[1])
+    insights["categorical_cols"] = int(clean_df.shape[1] - insights["numeric_cols"])
+
+    if raw_df is not None:
+        insights["rows_before"] = int(raw_df.shape[0])
+        insights["cols_before"] = int(raw_df.shape[1])
+        insights["rows_removed"] = max(insights["rows_before"] - insights["rows_after"], 0)
+        insights["cols_removed"] = max(insights["cols_before"] - insights["cols_after"], 0)
+        insights["missing_before"] = int(raw_df.isna().sum().sum())
+
+    if data_purpose == "ml":
+        insights["recommendation"] = (
+            "This dataset was cleaned for Machine Learning — categorical columns "
+            "were fully encoded into numbers, so it's ready to go straight into "
+            "the ML phase for model training."
+        )
+    elif data_purpose == "nlp":
+        insights["recommendation"] = (
+            "This dataset was cleaned for NLP — free-text columns were kept as "
+            "real, readable text instead of being encoded away, so it's ready "
+            "for the NLP phase (sentiment, topics, text statistics)."
+        )
+    elif insights["numeric_cols"] and insights["categorical_cols"]:
+        insights["recommendation"] = (
+            "This dataset has a mix of numeric and categorical columns. Head to "
+            "Visualization to explore distributions and relationships first, or "
+            "re-run Phase 1 with a specific purpose (ML or NLP) once you know "
+            "what you'll build next."
+        )
+    elif insights["numeric_cols"]:
+        insights["recommendation"] = (
+            "This dataset is now fully numeric — a good candidate for the ML "
+            "phase, or Visualization if you want to inspect distributions first."
+        )
+    else:
+        insights["recommendation"] = (
+            "This dataset is mostly text/categorical — Visualization or the "
+            "NLP phase are good next steps."
+        )
+
+    return insights
 
 
 # ── Shared sidebar context ────────────────────────────────────────────────────
@@ -385,22 +674,41 @@ def eda():
         get_clean_df() is not None
     )
 
+    # Same "did the pipeline already finish" state /eda_result uses. Passing
+    # it here too lets index.html render its finished-report card straight
+    # from the server on every load — including after navigating away and
+    # back — instead of relying on the live SSE 'done' event, which only
+    # ever fires once, during the run itself.
+    clean_df = get_clean_df()
+    has_clean = clean_df is not None
+    stats = {"rows": clean_df.shape[0], "cols": clean_df.shape[1]} if has_clean else None
+
     return render_template(
         "index.html",
         active_page="eda",
         mode=mode,
-        has_dataset=has_dataset
+        has_dataset=has_dataset,
+        has_clean=has_clean,
+        stats=stats,
+        report_view_url=session.get('report_view_url'),
+        report_download_url=session.get('report_download_url'),
+        dataset_filename=session.get('dataset_filename'),
+        pipeline_log=get_pipeline_log() if has_clean else [],
     )
 @app.route('/eda_result')
 def eda_page():
     mode = session.get("mode", "user")
-    has_raw = get_raw_df() is not None
+    raw_df = get_raw_df()
+    has_raw = raw_df is not None
     clean_df = get_clean_df()
     has_clean = clean_df is not None
+    data_purpose = session.get('data_purpose', 'general')
 
     stats = None
+    insights = None
     if has_clean:
         stats = {"rows": clean_df.shape[0], "cols": clean_df.shape[1]}
+        insights = build_eda_insights(raw_df, clean_df, data_purpose)
 
     return render_template(
         "eda_ui.html",
@@ -409,7 +717,8 @@ def eda_page():
         has_raw=has_raw,
         has_clean=has_clean,
         stats=stats,
-        data_purpose=session.get('data_purpose', 'general'),
+        insights=insights,
+        data_purpose=data_purpose,
         report_view_url=session.get('report_view_url'),
         report_download_url=session.get('report_download_url'),
     )
@@ -443,6 +752,7 @@ def process():
             # ── Persist raw DF in session ──────────────────────────────
             raw_path = save_session_df(df, 'raw')
             session['raw_df_path'] = raw_path
+            session['dataset_filename'] = file.filename
 
             ctx = ChatContext()
             ctx.update_raw_dataset(df)
@@ -617,6 +927,7 @@ def pipeline_stream():
         df_raw = loader.load()
         raw_path = save_session_df(df_raw, 'raw')
         session['raw_df_path'] = raw_path
+        session['dataset_filename'] = file.filename
         _ctx = ChatContext()
         _ctx.update_raw_dataset(df_raw)
     else:
@@ -629,6 +940,27 @@ def pipeline_stream():
     clean_path = os.path.join(SESSION_DATA_FOLDER, clean_fname)
     session['clean_df_path'] = clean_path
     session['pipeline_done'] = False
+
+    # Reserve the report filename NOW too (same reason as clean_path above):
+    # the generator runs OUTSIDE the request context and can't write back
+    # into session, so report_view_url/report_download_url were never
+    # actually being persisted — /eda and /eda_result always saw None for
+    # them on any load after the live SSE event. Deciding the filename here
+    # instead, while we still have a real request/session, fixes that.
+    report_fname = f"report_{uuid.uuid4().hex[:8]}.html"
+    session['report_view_url'] = f"/view/{report_fname}"
+    session['report_download_url'] = f"/download/{report_fname}"
+
+    # Reserve a log file path too — the generator below runs OUTSIDE the
+    # request context, so it can't write to `session`, but it CAN append to
+    # a plain file at a path we decide now. This is what lets /eda rebuild
+    # the exact same pipeline dashboard (stages + console log) after
+    # navigating away and back, instead of it only ever existing for the
+    # one live SSE run.
+    log_fname = f"pipelinelog_{uuid.uuid4().hex}.jsonl"
+    log_path = os.path.join(SESSION_DATA_FOLDER, log_fname)
+    session['pipeline_log_path'] = log_path
+    open(log_path, "w", encoding="utf-8").close()  # start empty, before streaming begins
     # Lock in the purpose for THIS clean dataset — /nlp and /ml check this on
     # every request so a page whose columns were cleaned away for the other
     # purpose stays locked until Phase 1 is re-run with a matching purpose.
@@ -649,11 +981,22 @@ def pipeline_stream():
     _ctx_path = session['context_path']
 
     def send(stage, message, progress):
+        entry = {
+            "stage": stage, "message": message, "progress": progress,
+            "time": datetime.now().strftime("%H:%M:%S"),
+        }
+        try:
+            with open(log_path, "a", encoding="utf-8") as f:
+                f.write(json.dumps(entry) + "\n")
+        except OSError:
+            pass
         return f"data: {json.dumps({'stage': stage, 'message': message, 'progress': progress, 'type': 'progress'})}\n\n"
 
     # Capture variables needed inside generator (avoids any session access)
     _df_raw = df_raw
     _clean_path = clean_path
+    _report_fname = report_fname
+    _log_path = log_path
     _null_threshold = null_threshold
     _null_fill_strategy = null_fill_strategy
     _do_type_conversion = do_type_conversion
@@ -751,7 +1094,7 @@ def pipeline_stream():
             
             # Step 9 — Generate report
             yield send("Report Generated", "Synthesizing intelligence report...", 95)
-            out_file = f"report_{uuid.uuid4().hex[:8]}.html"
+            out_file = _report_fname
             output_path = os.path.join(REPORTS_FOLDER, out_file)
             ReportGenerator(clean_data).generate_report(mode="detailed", file_name=output_path)
 
@@ -769,6 +1112,20 @@ def pipeline_stream():
             # We can't update session here (outside request context), so we rely on
             # the existence of the pickle file as the source of truth.
             # The /phase2/status endpoint checks get_clean_df() which checks the file.
+
+            done_entry = {
+                "stage": "Report Generated", "message": "Complete", "progress": 100,
+                "time": datetime.now().strftime("%H:%M:%S"),
+            }
+            try:
+                with open(_log_path, "a", encoding="utf-8") as f:
+                    f.write(json.dumps(done_entry) + "\n")
+                    f.write(json.dumps({
+                        "stage": "Report Generated", "message": "Final Intelligence Deployed",
+                        "progress": 100, "time": done_entry["time"],
+                    }) + "\n")
+            except OSError:
+                pass
 
             yield f"data: {json.dumps({'done': True, 'stage': 'Report Generated', 'message': 'Complete', 'progress': 100, 'view_url': f'/view/{out_file}', 'download_url': f'/download/{out_file}', 'rows': len(clean_data), 'cols': len(clean_data.columns)})}\n\n"
 
@@ -901,7 +1258,11 @@ def phase2_status():
             "columns": [
                 {"name": col, "type": resolve_column_type(col, clean_df, original_schema)}
                 for col in clean_df.columns
-            ]
+            ],
+            # Every chart already generated this session, keyed by chart_type
+            # — lets /phase2 rebuild the whole gallery + axis selections on
+            # a revisit instead of starting blank.
+            "last_results": get_page_state('phase2_state_path'),
         })
     return jsonify({"status": "no_data"})
 
@@ -993,6 +1354,16 @@ def phase2_generate():
     Falls back to uploaded file if session data missing.
     """
     chart_type = request.form.get('chart_type', '')
+
+    # Snapshot every non-file form field now (used below to persist this
+    # chart's exact settings, so /phase2 can restore the same axis/column
+    # picks on the next page load — not just the resulting image).
+    params_out = {}
+    for k in request.form.keys():
+        if k == 'chart_type':
+            continue
+        vals = request.form.getlist(k)
+        params_out[k] = vals if len(vals) > 1 else vals[0]
 
     # Get clean DF from session
     df = get_clean_df()
@@ -1122,13 +1493,22 @@ def phase2_generate():
 
         save_chat_context(ctx)
 
-        return jsonify({
+        result_payload = {
             "status": "success",
             "chart_type": chart_type,
             "plot_type": plot_type,
             "view_url": f"/phase2/view/{plot_filename}",
             "download_url": f"/phase2/download/{plot_filename}",
-        })
+        }
+
+        # Persist this chart (its exact form choices + the resulting image)
+        # keyed by chart_type, so /phase2/status can hand it back on the
+        # next page load and the whole gallery reappears without
+        # regenerating anything.
+        update_page_state('phase2_state_path', chart_type,
+                           {"params": params_out, "result": result_payload}, "phase2_state")
+
+        return jsonify(result_payload)
 
     except Exception as e:
         print("Phase 2 Error:", e)
@@ -1241,6 +1621,13 @@ def nlp_page():
                 "candidates": text_cols if text_cols else all_object_cols,
                 "columns": list(df.columns),
             }
+            # Restore the last analysis run (dev-mode field choices + full
+            # results) so navigating away and back shows exactly what was
+            # there before — only if it was run on a column that still
+            # exists on the CURRENT dataset (stale otherwise).
+            saved = get_page_state('nlp_state_path').get('_last')
+            if saved and saved.get('params', {}).get('text_column') in df.columns:
+                nlp_state['last_run'] = saved
     has_dataset = get_raw_df() is not None or get_clean_df() is not None
     return render_template("nlp_ui.html", mode=mode, active_page='nlp',
                             locked=locked, nlp_state=nlp_state,has_dataset=has_dataset)
@@ -1364,14 +1751,39 @@ def nlp_analyze():
             )
             summary_line = (
                 f"Lexicon-based sentiment on '{text_column}': "
-                f"{sentiment['distribution']} ({sentiment['dominant_sentiment']} dominant)."
+                f"{sentiment['distribution']} ({sentiment['dominant_sentiment']} dominant). "
             )
+            # Concrete examples, not just the aggregate counts above — this is
+            # what lets the chatbot answer "what's the most negative review?"
+            # instead of only reporting percentages.
+            if sentiment.get("top_negative"):
+                neg_lines = "; ".join(
+                    f"\"{ex['text']}\" (score {ex['score']})" for ex in sentiment["top_negative"]
+                )
+                summary_line += f"Most negative example(s): {neg_lines}. "
+            if sentiment.get("top_positive"):
+                pos_lines = "; ".join(
+                    f"\"{ex['text']}\" (score {ex['score']})" for ex in sentiment["top_positive"]
+                )
+                summary_line += f"Most positive example(s): {pos_lines}. "
 
         stats = result["statistics"]
         keyword_line = ", ".join(k["term"] for k in result["keywords"][:10])
+        bigram_line = ", ".join(b["term"] for b in result["bigrams"][:10])
+        trigram_line = ", ".join(t["term"] for t in result.get("trigrams", [])[:10])
+        ba = result["before_after"]
+
         description = (
-            f"{stats['documents']} documents, avg {stats['avg_word_count']} words each, "
-            f"vocabulary size {stats['vocabulary_size']}. Top keywords: {keyword_line}. {summary_line}"
+            f"{stats['documents']} documents, avg {stats['avg_word_count']} words each "
+            f"(min {stats['min_word_count']}, max {stats['max_word_count']}), "
+            f"vocabulary size {stats['vocabulary_size']}, {stats['empty_documents']} empty documents. "
+            f"Top keywords: {keyword_line}. "
+            f"Top bigrams (2-word phrases): {bigram_line}. "
+            + (f"Top trigrams (3-word phrases): {trigram_line}. " if trigram_line else "")
+            + f"Cleaning impact: vocabulary went from {ba['before']['vocabulary_size']} to "
+              f"{ba['after']['vocabulary_size']} unique words, average length from "
+              f"{ba['before']['avg_word_count']} to {ba['after']['avg_word_count']} words. "
+            + summary_line
         )
 
         ctx = get_chat_context()
@@ -1383,6 +1795,22 @@ def nlp_analyze():
 
         result["plots"] = plots
         result["status"] = "success"
+
+        # Persist this run (the exact form choices + the full result) so
+        # /nlp can restore it on the next page load without re-analyzing.
+        update_page_state('nlp_state_path', '_last', {
+            "params": {
+                "text_column": text_column,
+                "auto": auto,
+                "method": method,
+                "ngram_max": ngram_max,
+                "top_n": top_n,
+                "include_sentiment": include_sentiment,
+                "include_trigrams": include_trigrams,
+            },
+            "result": result,
+        }, "nlp_state")
+
         return jsonify(result)
 
     except Exception as e:
@@ -1467,6 +1895,15 @@ def ml_page():
                     "regression": ModelFactory.available_models("regression"),
                 },
             }
+            # Restore the last training run (target/model/hyperparam choices
+            # + full trained-model results) so navigating away and back
+            # shows the same trained model instead of an empty form — only
+            # if it was trained against a target that still exists on the
+            # CURRENT clean dataset (stale otherwise, e.g. after re-running
+            # Phase 1 with different columns).
+            saved = get_page_state('ml_state_path').get('_last')
+            if saved and saved.get('params', {}).get('target_column') in df.columns:
+                ml_state['last_run'] = saved
     has_dataset = get_raw_df() is not None or get_clean_df() is not None
     return render_template("ml_ui.html", mode=mode, active_page='ml',
                             locked=locked, ml_state=ml_state,has_dataset=has_dataset)
@@ -1665,6 +2102,29 @@ def ml_train():
         session[f"ml_model_path_{result['model_id']}"] = os.path.join(ML_MODELS_FOLDER, f"model_{result['model_id']}.pkl")
 
         result["status"] = "success"
+
+        # Persist this run (exact form choices + the full trained-model
+        # result) so /ml can restore it on the next page load without
+        # re-training. Saved regardless of mode — target_column and
+        # model_name always end up set one way or another above.
+        run_params = {
+            "mode": mode,
+            "target_column": result.get("target_column"),
+            "model_name": result.get("model_name"),
+            "task_type": result.get("task_type"),
+            "feature_columns": result.get("feature_columns"),
+        }
+        if mode != "user":
+            run_params.update({
+                "test_size": data.get("test_size", 0.2),
+                "scale": data.get("scale", "false") == "true",
+                "hyperparams": hyperparams,
+            })
+        update_page_state('ml_state_path', '_last', {
+            "params": run_params,
+            "result": result,
+        }, "ml_state")
+
         return jsonify(result)
 
     except Exception as e:

@@ -68,7 +68,7 @@
                         <div class="mini-icon">
                             <i class="fas fa-file-upload"></i>
                         </div>
-                        <p id="file-status">Select Data File (CSV/Excel)</p>
+                        <p id="file-status"{% if dataset_filename %} style="color:#14ffd0;" title="{{ dataset_filename }}"{% endif %}>{{ dataset_filename if dataset_filename else 'Select Data File (CSV/Excel)' }}</p>
                         <input type="file" id="real-file" name="file" hidden accept=".csv, .xlsx, .xls">
                         <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:4px;">
                             <button type="button" class="action-btn cyan-btn"
@@ -76,7 +76,7 @@
                                 <i class="fas fa-search"></i> Browse
                             </button>
                             <button type="button" id="clear-file-btn" onclick="clearSelectedFile()"
-                                style="display:none;background:rgba(255,64,129,0.12);border:1px solid rgba(255,64,129,0.4);color:#ff4081;padding:8px 18px;border-radius:10px;font-size:10px;font-weight:700;letter-spacing:1.5px;cursor:pointer;transition:all 0.3s;text-transform:uppercase;font-family:Inter,sans-serif;">
+                                style="display:{{ 'inline-block' if dataset_filename else 'none' }};background:rgba(255,64,129,0.12);border:1px solid rgba(255,64,129,0.4);color:#ff4081;padding:8px 18px;border-radius:10px;font-size:10px;font-weight:700;letter-spacing:1.5px;cursor:pointer;transition:all 0.3s;text-transform:uppercase;font-family:Inter,sans-serif;">
                                 <i class="fas fa-times"></i> Clear Data
                             </button>
                         </div>
@@ -258,7 +258,8 @@
                 <div id="table-preview" class="table-scroll"></div>
 
                 <div class="action-footer">
-                    <a href="#" id="view-btn" target="_blank" class="action-btn cyan-btn">
+                    <a href="#" id="view-btn" class="action-btn cyan-btn"
+                        onclick="event.preventDefault(); openReportModal(this.href);">
                         <i class="fas fa-eye"></i> View Report
                     </a>
 
@@ -279,19 +280,23 @@
             </div>
 
             <!-- Final Pipeline Results -->
-            <div id="pipeline-results" class="glass-card result-container final-report-card" style="display: none;">
+            <div id="pipeline-results" class="glass-card result-container final-report-card"
+                style="display: {{ 'block' if has_clean else 'none' }};">
                 <div class="card-header purple-glow">REPORT DEPLOYED</div>
 
                 <div class="stats-bar">
                     <i class="fas fa-check-circle" style="color: var(--neon-c);"></i>
-                    <span id="pipe-res-stats">Engine Analysis Complete</span>
+                    <span id="pipe-res-stats">
+                        {% if has_clean and stats %}Clean Data: {{ stats.rows }} rows × {{ stats.cols }} columns{% else %}Engine Analysis Complete{% endif %}
+                    </span>
                 </div>
 
                 <div class="action-footer">
-                    <a id="pipe-view-btn" href="#" target="_blank" class="action-btn cyan-btn">
+                    <a id="pipe-view-btn" href="{{ report_view_url or '#' }}" class="action-btn cyan-btn"
+                        onclick="event.preventDefault(); openReportModal(this.href);">
                         <i class="fas fa-eye"></i> VIEW
                     </a>
-                    <a id="pipe-download-btn" href="#" download class="action-btn purple-btn">
+                    <a id="pipe-download-btn" href="{{ report_download_url or '#' }}" download class="action-btn purple-btn">
                         <i class="fas fa-download"></i> DOWNLOAD
                     </a>
                 </div>
@@ -303,6 +308,16 @@
                         <i class="fas fa-chart-bar"></i> Phase 2 — Visualization
                     </a>
                 </div>
+
+                <!-- EDA results hint — draws attention to the finished EDA page -->
+                <a href="/eda_result" id="eda-ready-hint" class="eda-ready-hint">
+                    <div class="eda-ready-hint-icon"><i class="fas fa-wand-magic-sparkles"></i></div>
+                    <div class="eda-ready-hint-text">
+                        <strong>Your EDA page is ready</strong>
+                        <span>Tap to see the full explanation & insights</span>
+                    </div>
+                    <i class="fas fa-arrow-right eda-ready-hint-arrow"></i>
+                </a>
             </div>
 
             <div class="stream-wrapper">
@@ -317,6 +332,22 @@
         <!-- ==================== SIDEBAR NAVIGATION ==================== -->
         {% include "components/sidebar.html" %}
 
+    </div>
+
+    <!-- Report Preview Modal — keeps "View Report" on this page instead of a new tab -->
+    <div id="report-modal-overlay" class="report-modal-overlay">
+        <div class="report-modal-box" id="report-modal-box">
+            <div class="report-modal-header">
+                <span><i class="fas fa-file-lines"></i> Report Preview</span>
+                <div class="report-modal-header-actions">
+                    <button type="button" id="report-modal-expand" class="report-modal-expand" title="Maximize" aria-label="Maximize">
+                        <i class="fas fa-expand"></i>
+                    </button>
+                    <button type="button" id="report-modal-close" class="report-modal-close" aria-label="Close">&times;</button>
+                </div>
+            </div>
+            <iframe id="report-modal-iframe" class="report-modal-iframe" src="about:blank"></iframe>
+        </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/gh/michalsnik/aos@2.3.1/dist/aos.js"></script>
@@ -340,6 +371,34 @@
         const streamWrapper = document.querySelector('.stream-wrapper');
         const dashboard = document.getElementById('pipeline-dashboard');
         const sidebar = document.getElementById('sidebar');
+
+        // ==========================================
+        // Report Preview Modal
+        // ==========================================
+        function openReportModal(url) {
+            if (!url || url === '#') return;
+            document.getElementById('report-modal-iframe').src = url;
+            document.getElementById('report-modal-overlay').classList.add('open');
+        }
+        function closeReportModal() {
+            document.getElementById('report-modal-overlay').classList.remove('open');
+            document.getElementById('report-modal-iframe').src = 'about:blank';
+            document.getElementById('report-modal-box').classList.remove('maximized');
+            const expandBtn = document.getElementById('report-modal-expand');
+            expandBtn.innerHTML = '<i class="fas fa-expand"></i>';
+            expandBtn.title = 'Maximize';
+        }
+        document.getElementById('report-modal-close').onclick = closeReportModal;
+        document.getElementById('report-modal-expand').onclick = () => {
+            const box = document.getElementById('report-modal-box');
+            const expandBtn = document.getElementById('report-modal-expand');
+            const isMax = box.classList.toggle('maximized');
+            expandBtn.innerHTML = isMax ? '<i class="fas fa-compress"></i>' : '<i class="fas fa-expand"></i>';
+            expandBtn.title = isMax ? 'Restore' : 'Maximize';
+        };
+        document.getElementById('report-modal-overlay').onclick = (e) => {
+            if (e.target.id === 'report-modal-overlay') closeReportModal();
+        };
 
         // ==========================================
         // Helpers
@@ -559,6 +618,40 @@
         }
 
     </script>
+    {% if has_clean %}
+    <script>
+        // The pipeline-results card above is already visible because the
+        // SERVER confirmed a clean dataset exists (has_clean) — this just
+        // brings the "Live Pipeline" button's label/behavior in line with
+        // that, for whenever this page loads WITHOUT a live SSE run just
+        // having finished (e.g. navigated back from another page). Doesn't
+        // call restartPipelineUI() itself, since that hides pipeline-results
+        // — which we want to stay visible here.
+        if (streamBtn) {
+            streamBtn.style.display = 'inline-block';
+            streamBtn.disabled = false;
+            streamBtn.innerText = 'RESTART ENGINE';
+            streamBtn.style.background = '#07cda5';
+            streamBtn.onclick = () => restartPipelineUI();
+        }
+
+        // Replay the ACTUAL recorded stages/console log from the last run
+        // (persisted server-side in pipeline_log_path — see /pipeline-stream
+        // in app.py) so the dashboard looks exactly like it did right after
+        // the engine finished, instead of coming back empty on every new
+        // page load.
+        const PIPELINE_LOG_INITIAL = {{ pipeline_log | tojson }};
+        if (PIPELINE_LOG_INITIAL.length && dashboard) {
+            dashboard.style.display = 'grid';
+            if (typeof renderPipeline === 'function') renderPipeline();
+            PIPELINE_LOG_INITIAL.forEach(entry => {
+                if (typeof updateStage === 'function') {
+                    updateStage(entry.stage, entry.message, entry.progress, entry.time);
+                }
+            });
+        }
+    </script>
+    {% endif %}
     <script>
         // "Enter Results" used to be a button revealed here once the pipeline
         // finished. It now lives permanently in the sidebar instead (see

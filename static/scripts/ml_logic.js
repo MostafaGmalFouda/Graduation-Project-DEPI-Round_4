@@ -173,9 +173,63 @@ async function initML() {
         // just a visibility swap — nothing to (re)fetch, nothing to lose.
         await setupUserTargetUI(data);
         await initDeveloperForm(data);
+
+        await restoreLastMLRun();
     } catch (e) {
         showToast("Could not reach the server: " + e.message, "error");
     }
+}
+
+// Rehydrates the page from ML_INITIAL.last_run (server-rendered on every
+// /ml GET — see app.py). Restores the target/model/hyperparameter choices
+// on whichever mode was actually used, then re-renders the trained-model
+// results directly (no re-training) — so navigating away and back shows the
+// same trained model. Only cleared by a real refresh or a brand new upload.
+async function restoreLastMLRun() {
+    const lastRun = ML_INITIAL && ML_INITIAL.last_run;
+    if (!lastRun || !lastRun.params || !lastRun.result) return;
+
+    const p = lastRun.params;
+
+    if (p.mode === "user") {
+        const targetSelect = document.getElementById("ml-user-target");
+        if (targetSelect && p.target_column) targetSelect.value = p.target_column;
+        ML.recommendedModel = p.model_name || null;
+    } else {
+        const targetSelect = document.getElementById("ml-dev-target");
+        if (targetSelect && p.target_column) {
+            targetSelect.value = p.target_column;
+            targetSelect.dispatchEvent(new Event("change")); // rebuilds task/model options + feature checklist
+        }
+        if (p.task_type) document.getElementById("ml-dev-task").value = p.task_type;
+        if (p.model_name) {
+            document.getElementById("ml-dev-model").value = p.model_name;
+            document.getElementById("ml-dev-model").dispatchEvent(new Event("change")); // rebuilds hyperparam controls
+        }
+        if (p.test_size !== undefined) document.getElementById("ml-dev-testsize").value = p.test_size;
+        document.getElementById("ml-dev-scale").checked = !!p.scale;
+
+        // Hyperparam inputs are only built once refreshModelOptions/change
+        // above has run — do it after a tick so the controls exist.
+        if (p.hyperparams) {
+            document.querySelectorAll(".ml-hyperparam-input").forEach(inp => {
+                const val = p.hyperparams[inp.dataset.name];
+                if (val === undefined) return;
+                if (inp.dataset.type === "bool") inp.checked = !!val;
+                else inp.value = val;
+            });
+        }
+        if (Array.isArray(p.feature_columns)) {
+            document.querySelectorAll(".ml-feature-check").forEach(cb => {
+                const cols = cb.dataset.columns.split(",");
+                cb.checked = cols.some(c => p.feature_columns.includes(c));
+            });
+        }
+    }
+
+    ML.lastResult = lastRun.result;
+    renderMLResults(lastRun.result);
+    document.getElementById("ml-results").style.display = "block";
 }
 
 async function initDeveloperForm(data) {

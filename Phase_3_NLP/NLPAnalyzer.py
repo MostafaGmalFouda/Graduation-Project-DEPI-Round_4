@@ -101,8 +101,9 @@ class NLPAnalyzer:
         return [len(t.split()) for t in self.texts]
 
     # ── Rule-based sentiment (no label column needed) ────────────────
-    def lexicon_sentiment(self) -> dict:
+    def lexicon_sentiment(self, n_examples: int = 3) -> dict:
         results = []
+        scores = []  # signed strength per text: positive-word hits minus negative-word hits
         for text in self.texts:
             tokens = re.findall(r"[a-zA-Z']+", text.lower())
             pos = 0
@@ -134,16 +135,43 @@ class NLPAnalyzer:
             else:
                 label = "neutral"
             results.append(label)
+            scores.append(pos - neg)
 
         series = pd.Series(results)
         counts = series.value_counts().to_dict()
         total = len(series)
+
+        # Rank the ORIGINAL (uncleaned) texts by score so "what's the most
+        # negative review?" / "most positive?" has an actual answer instead
+        # of only an aggregate distribution. Ties broken by original order.
+        # Empty/whitespace-only texts are excluded — they carry no signal.
+        ranked = sorted(
+            (
+                (score, i, text)
+                for i, (score, text) in enumerate(zip(scores, self.texts))
+                if text and text.strip()
+            ),
+            key=lambda item: item[0],
+        )
+
+        def _examples(items):
+            return [
+                {"text": text[:300], "score": score}
+                for score, _, text in items
+            ]
+
+        top_negative = _examples(ranked[:n_examples])
+        top_positive = _examples(list(reversed(ranked[-n_examples:])) if ranked else [])
+
         return {
             "method": "lexicon",
             "labels": results,
+            "scores": scores,
             "distribution": {k: int(v) for k, v in counts.items()},
             "distribution_pct": {k: round(v / total * 100, 1) for k, v in counts.items()} if total else {},
             "dominant_sentiment": series.value_counts().idxmax() if total else None,
+            "top_negative": top_negative,
+            "top_positive": top_positive,
         }
 
     # ── Raw text sample, kept so Phase 6 (RAG) can retrieve actual content

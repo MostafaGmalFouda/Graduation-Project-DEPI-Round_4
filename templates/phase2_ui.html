@@ -436,10 +436,34 @@
             applyPhase2ModeUI(APP_MODE);
         }
 
-        async function loadAutomaticDashboard() {
+        function renderAutoDashboard(data) {
             const loading = document.getElementById('loading');
             const content = document.getElementById('dashboard-content');
             const container = document.getElementById('auto-plots');
+            loading.style.display = 'none';
+            content.style.display = 'block';
+            container.innerHTML = `
+                <iframe src="${data.view_url}"
+                        style="width:100%; height:920px; border:none; border-radius:12px;"
+                        allowfullscreen></iframe>`;
+        }
+
+        async function loadAutomaticDashboard() {
+            const loading = document.getElementById('loading');
+
+            // Already generated earlier this session? Restore it directly
+            // instead of re-running the dashboard build on every revisit.
+            try {
+                const statusRes = await fetch('/phase2/status');
+                const statusData = await statusRes.json();
+                const cached = statusData.last_results && statusData.last_results.automatic_dashboard;
+                if (cached && cached.result) {
+                    renderAutoDashboard(cached.result);
+                    return;
+                }
+            } catch (e) {
+                // fall through to a fresh generate below
+            }
 
             const formData = new FormData();
             formData.append('chart_type', 'automatic_dashboard');
@@ -449,12 +473,7 @@
                 const data = await res.json();
 
                 if (data.status === "success") {
-                    loading.style.display = 'none';
-                    content.style.display = 'block';
-                    container.innerHTML = `
-                        <iframe src="${data.view_url}"
-                                style="width:100%; height:920px; border:none; border-radius:12px;"
-                                allowfullscreen></iframe>`;
+                    renderAutoDashboard(data);
                 } else {
                     loading.innerHTML = `<p style="color:orange;">⚠️ ${data.message || 'Could not generate dashboard.'}</p>`;
                 }

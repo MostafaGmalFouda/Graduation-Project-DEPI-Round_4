@@ -4,11 +4,19 @@ from langchain_core.documents import Document
 def build_guaranteed_facts(chat_context) -> str:
     """
     Core structural facts (row/column counts, missing values, duplicates)
-    for both dataset stages. These are returned as a fixed text block that
+    for both dataset stages, PLUS the full NLP analysis summary for every
+    analyzed text column. These are returned as a fixed text block that
     ALWAYS goes into the prompt — they do NOT depend on similarity search
-    finding the right document among k results. Precise counting questions
-    ("how many rows?", "any missing values?") must never be left to chance
-    retrieval; they're small enough to just always include.
+    finding the right document among k results.
+
+    The NLP summaries are included here (not just as a retrievable
+    Document) because build_documents() also stores up to hundreds of
+    individual raw-text documents (one per row) for the SAME column. Those
+    heavily outnumber the single NLP analysis document and routinely beat
+    it in top-k similarity search, so the analysis (keywords, bigrams,
+    sentiment breakdown, extremes) would rarely actually reach the model.
+    Precise/summary questions must never be left to chance retrieval;
+    the text is small enough to just always include.
     """
     dataset = chat_context.dataset_context.get_context()
     lines = []
@@ -24,6 +32,11 @@ def build_guaranteed_facts(chat_context) -> str:
             f"duplicate_rows={stage.get('duplicates', 0)}, "
             f"total_missing_values={missing_total}, "
             f"column_names={stage['column_names']}"
+        )
+
+    for analysis in chat_context.nlp_context.get_context():
+        lines.append(
+            f"[NLP analysis of column '{analysis['text_column']}'] {analysis['description']}"
         )
 
     return "\n".join(lines) if lines else "No dataset has been loaded yet."

@@ -506,3 +506,163 @@ select:hover { border-color: var(--neon-p); background: rgba(13, 12, 12, 0.5); }
   box-shadow: 0 0 30px rgba(179, 45, 212, 0.6);
   transform: translateY(-2px);
 }
+
+/* ============================================= */
+/* EDA-ready hint — points the user at /eda_result */
+/* ============================================= */
+.eda-ready-hint {
+    margin-top: 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px 20px;
+    border-radius: 14px;
+    text-decoration: none;
+    color: var(--txt);
+    background: linear-gradient(90deg, rgba(20, 255, 208, 0.1), rgba(163, 51, 255, 0.1));
+    border: 1px solid var(--neon-c);
+    box-shadow: 0 0 0 rgba(20, 255, 208, 0.4);
+    animation: hintPulse 2.2s ease-in-out infinite;
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+.eda-ready-hint:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 25px rgba(20, 255, 208, 0.25);
+}
+.eda-ready-hint-icon {
+    flex-shrink: 0;
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(20, 255, 208, 0.12);
+    color: var(--neon-c);
+    font-size: 18px;
+}
+.eda-ready-hint-text {
+    flex: 1;
+    min-width: 0;
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.eda-ready-hint-text strong {
+    font-size: 14px;
+    letter-spacing: 0.5px;
+}
+.eda-ready-hint-text span {
+    font-size: 12px;
+    color: var(--txt-dim);
+}
+.eda-ready-hint-arrow {
+    color: var(--neon-c);
+    font-size: 16px;
+    transition: transform 0.25s ease;
+}
+.eda-ready-hint:hover .eda-ready-hint-arrow {
+    transform: translateX(4px);
+}
+
+@keyframes hintPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(20, 255, 208, 0.35); }
+    50% { box-shadow: 0 0 0 8px rgba(20, 255, 208, 0); }
+}
+
+/* ============================================= */
+/* Report Preview Modal — keeps report viewing    */
+/* in-page instead of opening a new tab           */
+/* ============================================= */
+.report-modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 10500;
+    background: rgba(5, 7, 10, 0.75);
+    backdrop-filter: blur(4px);
+    align-items: center;
+    justify-content: center;
+    padding: 30px;
+}
+.report-modal-overlay.open {
+    display: flex;
+}
+.report-modal-box {
+    width: 100%;
+    max-width: 1100px;
+    height: 85vh;
+    background: #0d0f14;
+    border: 1px solid var(--border-glass);
+    border-radius: 16px;
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.report-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 20px;
+    background: rgba(255, 255, 255, 0.03);
+    border-bottom: 1px solid var(--border-glass);
+    font-size: 13px;
+    letter-spacing: 1px;
+    color: var(--neon-c);
+    text-transform: uppercase;
+    font-weight: 700;
+}
+.report-modal-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.report-modal-expand,
+.report-modal-close {
+    background: none;
+    border: none;
+    color: var(--txt-dim);
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: color 0.2s ease, background 0.2s ease;
+}
+.report-modal-expand {
+    font-size: 15px;
+}
+.report-modal-close {
+    font-size: 22px;
+    line-height: 1;
+}
+.report-modal-expand:hover,
+.report-modal-close:hover {
+    color: var(--neon-c);
+    background: rgba(255, 255, 255, 0.06);
+}
+.report-modal-close:hover {
+    color: var(--neon-p);
+}
+.report-modal-iframe {
+    flex: 1;
+    width: 100%;
+    border: none;
+    background: #fff;
+}
+
+.report-modal-box.maximized {
+    max-width: 100vw;
+    width: 100vw;
+    height: 100vh;
+    border-radius: 0;
+}
+.report-modal-overlay:has(.report-modal-box.maximized) {
+    padding: 0;
+}
+
+@media (max-width: 700px) {
+    .report-modal-overlay { padding: 10px; }
+    .report-modal-box { height: 90vh; }
+    .eda-ready-hint { flex-wrap: wrap; }
+}

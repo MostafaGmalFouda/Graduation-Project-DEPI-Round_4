@@ -16,7 +16,7 @@ function renderPipeline() {
     `).join("");
 }
 
-function updateStage(stageName, message, progress = 0) {
+function updateStage(stageName, message, progress = 0, historicalTime = null) {
     document.querySelectorAll(".stage-item").forEach(item => {
         const name = item.dataset.stage;
         if (name === stageName) {
@@ -43,7 +43,9 @@ function updateStage(stageName, message, progress = 0) {
     if (consoleBox) {
         const log = document.createElement("div");
         log.className = "log-entry active-log";
-        const time = new Date().toLocaleTimeString([], { hour12: false });
+        // Replaying a finished run passes back its ORIGINAL server-recorded
+        // time; a live run has no historicalTime and just uses "now".
+        const time = historicalTime || new Date().toLocaleTimeString([], { hour12: false });
         log.innerHTML = `<span style="color: #666;">[${time}]</span> <strong style="color: #a333ff;">${stageName}:</strong> ${message}`;
         consoleBox.appendChild(log);
         consoleBox.scrollTop = consoleBox.scrollHeight;
@@ -108,6 +110,35 @@ async function startPipelineStream(file, devParams = {}) {
         console.error("Stream Error:", err);
         const streamWrapper = document.querySelector('.stream-wrapper');
         if (streamWrapper) streamWrapper.classList.remove('loading');
+
+        // Previously this only cleared the spinner class and stopped —
+        // the "ENGINE RUNNING..." button and the "System Standby" console
+        // line were left exactly as they were, so on any real failure
+        // (network drop, server 500 before streaming even started, etc.)
+        // the UI looked like it was still working forever with nothing
+        // ever appearing. Surface it instead.
+        const consoleBox = document.getElementById("pipeline-console");
+        if (consoleBox) {
+            const log = document.createElement("div");
+            log.className = "log-entry active-log";
+            log.style.color = "#ff4d6d";
+            log.innerHTML = `<span style="color:#666;">[${new Date().toLocaleTimeString([], { hour12: false })}]</span> <strong style="color:#ff4d6d;">Error:</strong> Lost connection to the engine (${err.message}). Check the server console for a traceback, then try again.`;
+            consoleBox.appendChild(log);
+            consoleBox.scrollTop = consoleBox.scrollHeight;
+        }
+
+        // These ids are declared on the main pipeline page (index.html) —
+        // guard with typeof since pipeline_logic.js is shared with other
+        // pages that don't have a stream button.
+        if (typeof streamBtn !== "undefined" && streamBtn) {
+            streamBtn.disabled = false;
+            streamBtn.innerText = "RETRY ENGINE";
+            streamBtn.style.background = "#ff4d6d";
+        }
+        if (typeof errorBox !== "undefined" && errorBox) {
+            errorBox.innerText = "Pipeline failed: " + err.message + ". Check the server console for details, then retry.";
+            errorBox.style.display = "block";
+        }
     }
 }
 

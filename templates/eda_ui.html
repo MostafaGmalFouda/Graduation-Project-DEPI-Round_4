@@ -50,7 +50,8 @@
 
             <div class="run-all-wrapper" style="gap:12px; flex-wrap:wrap;">
                 {% if report_view_url %}
-                <a href="{{ report_view_url }}" target="_blank" class="run-all-btn" style="text-decoration:none;">
+                <a href="{{ report_view_url }}" class="run-all-btn" style="text-decoration:none; cursor:pointer;"
+                    onclick="event.preventDefault(); openReportModal('{{ report_view_url }}');">
                     <i class="fas fa-eye"></i> View Report
                 </a>
                 <a href="{{ report_download_url }}" class="run-all-btn" style="text-decoration:none; background:transparent; border:1px solid var(--border-glass); color:var(--txt);">
@@ -65,6 +66,108 @@
                 </a>
             </div>
         </div>
+
+        {% if insights %}
+        <!-- ═════════════ REAL DATA INSIGHTS ═════════════ -->
+        <div class="summary-panel" style="margin-top:24px;">
+            <div class="summary-panel-header">
+                <h3><i class="fas fa-chart-simple"></i> What's in your data</h3>
+            </div>
+            <p style="color:var(--txt-dim); font-size:13.5px; line-height:1.7; margin-bottom:16px;">
+                {{ insights.highlights }}
+            </p>
+            <div class="dataset-meta">
+                <div class="meta-chip"><i class="fas fa-hashtag"></i>{{ insights.numeric_cols }} numeric column{{ 's' if insights.numeric_cols != 1 else '' }}</div>
+                <div class="meta-chip"><i class="fas fa-font"></i>{{ insights.categorical_cols }} categorical/other column{{ 's' if insights.categorical_cols != 1 else '' }}</div>
+                <div class="meta-chip"><i class="fas fa-circle-check"></i>{{ insights.missing_after }} missing value{{ 's' if insights.missing_after != 1 else '' }} remaining</div>
+                {% if insights.rows_before %}
+                <div class="meta-chip"><i class="fas fa-broom"></i>{{ insights.rows_removed }} row{{ 's' if insights.rows_removed != 1 else '' }} cleaned out</div>
+                <div class="meta-chip"><i class="fas fa-table-columns"></i>{{ insights.cols_removed }} column{{ 's' if insights.cols_removed != 1 else '' }} dropped</div>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if insights.column_summary and insights.column_summary.rows %}
+        <div class="summary-panel" style="margin-top:24px;">
+            <div class="summary-panel-header">
+                <h3><i class="fas fa-table-list"></i> Column-by-column snapshot</h3>
+            </div>
+            <div class="table-scroll" style="margin-top:6px;">
+                <table class="preview-table">
+                    <thead>
+                        <tr>
+                            <th>Column</th>
+                            <th>Type</th>
+                            <th>Quick stat</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in insights.column_summary.rows %}
+                        <tr>
+                            <td style="font-weight:600;">{{ row.name }}</td>
+                            <td>{{ row.type }}</td>
+                            <td style="color:var(--txt-dim);">{{ row.detail }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% if insights.column_summary.hidden %}
+            <p style="color:var(--txt-dim); font-size:12px; margin-top:10px; margin-bottom:0;">
+                + {{ insights.column_summary.hidden }} more column{{ 's' if insights.column_summary.hidden != 1 else '' }} not shown here.
+                Download the cleaned CSV to see everything.
+            </p>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {% if insights.target_suggestion and insights.target_suggestion.target_col %}
+        <div class="summary-panel" style="margin-top:24px;">
+            <div class="summary-panel-header">
+                <h3><i class="fas fa-bullseye" style="color:var(--neon-p);"></i> Suggested ML target & model</h3>
+            </div>
+            <p style="color:var(--txt-dim); font-size:12px; margin-bottom:14px;">
+                Heuristic starting point based on column names and shape — not a trained
+                recommendation. Always sanity-check it against your actual goal.
+            </p>
+            <div class="dataset-meta" style="margin-bottom:14px;">
+                <div class="meta-chip" style="color:var(--neon-p); border-color:var(--neon-p);">
+                    <i class="fas fa-crosshairs"></i>Target: {{ insights.target_suggestion.target_col }}
+                </div>
+                {% if insights.target_suggestion.task_type %}
+                <div class="meta-chip" style="color:var(--neon-c); border-color:var(--neon-c);">
+                    <i class="fas fa-diagram-project"></i>{{ insights.target_suggestion.task_type }}
+                </div>
+                {% endif %}
+            </div>
+            <p style="color:var(--txt-dim); font-size:13.5px; line-height:1.7; margin-bottom:12px;">
+                {{ insights.target_suggestion.target_reason }}
+            </p>
+            {% if insights.target_suggestion.models %}
+            <p style="font-size:11px; text-transform:uppercase; letter-spacing:1px; color:var(--txt-dim); margin-bottom:8px;">
+                Worth trying
+            </p>
+            <div class="dataset-meta" style="margin-bottom:10px;">
+                {% for m in insights.target_suggestion.models %}
+                <div class="meta-chip"><i class="fas fa-robot"></i>{{ m }}</div>
+                {% endfor %}
+            </div>
+            <p style="color:var(--txt-dim); font-size:13px; margin-bottom:0;">
+                {{ insights.target_suggestion.model_reason }}
+            </p>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <div class="summary-panel" style="margin-top:24px;">
+            <div class="summary-panel-header">
+                <h3><i class="fas fa-lightbulb" style="color:var(--neon-c);"></i> Suggested next step</h3>
+            </div>
+            <p style="color:var(--txt-dim); font-size:13.5px; line-height:1.7; margin-bottom:0;">
+                {{ insights.recommendation }}
+            </p>
+        </div>
+        {% endif %}
 
         <div class="summary-panel" style="margin-top:24px;">
             <div class="summary-panel-header">
@@ -102,6 +205,48 @@
 
     </div><!-- /phase2-stage -->
     </div><!-- /content-area -->
+
+    <!-- Report Preview Modal — keeps "View Report" on this page instead of a new tab -->
+    <div id="report-modal-overlay" class="report-modal-overlay">
+        <div class="report-modal-box" id="report-modal-box">
+            <div class="report-modal-header">
+                <span><i class="fas fa-file-lines"></i> Report Preview</span>
+                <div class="report-modal-header-actions">
+                    <button type="button" id="report-modal-expand" class="report-modal-expand" title="Maximize" aria-label="Maximize">
+                        <i class="fas fa-expand"></i>
+                    </button>
+                    <button type="button" id="report-modal-close" class="report-modal-close" aria-label="Close">&times;</button>
+                </div>
+            </div>
+            <iframe id="report-modal-iframe" class="report-modal-iframe" src="about:blank"></iframe>
+        </div>
+    </div>
+    <script>
+        function openReportModal(url) {
+            if (!url || url === '#') return;
+            document.getElementById('report-modal-iframe').src = url;
+            document.getElementById('report-modal-overlay').classList.add('open');
+        }
+        function closeReportModal() {
+            document.getElementById('report-modal-overlay').classList.remove('open');
+            document.getElementById('report-modal-iframe').src = 'about:blank';
+            document.getElementById('report-modal-box').classList.remove('maximized');
+            const expandBtn = document.getElementById('report-modal-expand');
+            expandBtn.innerHTML = '<i class="fas fa-expand"></i>';
+            expandBtn.title = 'Maximize';
+        }
+        document.getElementById('report-modal-close').onclick = closeReportModal;
+        document.getElementById('report-modal-expand').onclick = () => {
+            const box = document.getElementById('report-modal-box');
+            const expandBtn = document.getElementById('report-modal-expand');
+            const isMax = box.classList.toggle('maximized');
+            expandBtn.innerHTML = isMax ? '<i class="fas fa-compress"></i>' : '<i class="fas fa-expand"></i>';
+            expandBtn.title = isMax ? 'Restore' : 'Maximize';
+        };
+        document.getElementById('report-modal-overlay').onclick = (e) => {
+            if (e.target.id === 'report-modal-overlay') closeReportModal();
+        };
+    </script>
 
     <script src="{{ url_for('static', filename='scripts/chatbot.js') }}"></script>
     <script src="{{ url_for('static', filename='scripts/sidebar_shell.js') }}"></script>

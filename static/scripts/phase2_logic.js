@@ -12,7 +12,75 @@ const Phase2 = {
     dataFromSession: false,   // true when loaded from session
     userDashboardLoaded: false,     // true once the auto dashboard has been generated
     devWorkspaceInitialized: false, // true once upload zone/tabs/session-load have run
+    lastResults: {},          // chart_type -> {params, result}, restored from /phase2/status
 };
+
+// Maps each chart_type to the container its result card renders into.
+const CHART_CONTAINER_MAP = {
+    summary_dashboard: "result-summary",
+    correlation_heatmap: "result-correlation",
+    scatter_2d: "result-scatter2d",
+    scatter_3d: "result-scatter3d",
+    joint_plot: "result-joint",
+    stacked_bar: "result-stacked",
+    cross_tabulation: "result-crosstab",
+    violin_plot: "result-violin",
+    facet_grid: "result-facet",
+    bubble_chart: "result-bubble",
+};
+
+// Maps each chart_type's saved params back onto its form fields (multi-
+// selects and checkboxes are handled separately below).
+const CHART_PARAM_FIELDS = {
+    scatter_2d: { col1: "scatter2d-x", col2: "scatter2d-y", color_col: "scatter2d-color" },
+    scatter_3d: { col1: "scatter3d-x", col2: "scatter3d-y", col3: "scatter3d-z", color_col: "scatter3d-color" },
+    joint_plot: { col1: "joint-col1", col2: "joint-col2", kind: "joint-kind" },
+    stacked_bar: { col1: "stacked-col1", col2: "stacked-col2" },
+    cross_tabulation: { col1: "crosstab-col1", col2: "crosstab-col2" },
+    violin_plot: { num_col: "violin-num", cat_col: "violin-cat" },
+    facet_grid: { cat_col: "facet-cat" },
+    bubble_chart: { x: "bubble-x", y: "bubble-y", size: "bubble-size", color: "bubble-color" },
+};
+
+function restoreChartParams(chartType, params) {
+    if (!params) return;
+    const map = CHART_PARAM_FIELDS[chartType];
+    if (map) {
+        Object.entries(map).forEach(([paramKey, elId]) => {
+            const el = document.getElementById(elId);
+            if (el && params[paramKey] !== undefined) el.value = params[paramKey];
+        });
+    }
+    if (chartType === "stacked_bar") {
+        const cb = document.getElementById("stacked-normalize");
+        if (cb) cb.checked = params.normalize === "true";
+    }
+    if (chartType === "facet_grid") {
+        const ms = document.getElementById("facet-numcols");
+        const selected = Array.isArray(params.num_cols) ? params.num_cols : [params.num_cols].filter(Boolean);
+        if (ms) Array.from(ms.options).forEach(o => { o.selected = selected.includes(o.value); });
+    }
+}
+
+// Rebuilds the whole chart gallery (results + the form selections that
+// produced them) from what /phase2/status returned, so navigating away and
+// back shows exactly what was there before instead of a blank workspace.
+function restoreSavedCharts(lastResults) {
+    if (!lastResults) return;
+    Phase2.lastResults = lastResults;
+    let any = false;
+    Object.entries(lastResults).forEach(([chartType, entry]) => {
+        if (chartType === "automatic_dashboard") return; // handled separately by loadAutomaticDashboard
+        const containerId = CHART_CONTAINER_MAP[chartType];
+        const container = containerId && document.getElementById(containerId);
+        if (container && entry.result) {
+            renderResult(container, entry.result);
+            any = true;
+        }
+        restoreChartParams(chartType, entry.params);
+    });
+    if (any) showVizTabs();
+}
 
 /* ════════════════════════════════════════════
    AUTO-LOAD FROM SESSION
@@ -47,7 +115,12 @@ async function tryLoadFromSession() {
             populateAllSelects();
             if (APP_MODE === "developer") {
                 showVizTabs();
-            } showToast(`Clean dataset loaded — ${data.rows} rows ready for visualization.`, "success");
+            }
+            // Rebuild any charts already generated earlier this session —
+            // must run AFTER populateAllSelects() so the <select> options
+            // it restores values into already exist.
+            restoreSavedCharts(data.last_results);
+            showToast(`Clean dataset loaded — ${data.rows} rows ready for visualization.`, "success");
         }
         // If no_data: upload zone stays visible, user must upload
     } catch (err) {
