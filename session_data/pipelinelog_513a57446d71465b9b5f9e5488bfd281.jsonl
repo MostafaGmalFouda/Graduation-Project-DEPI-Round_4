@@ -1,0 +1,11 @@
+{"stage": "Data Validation", "message": "Engine started. Accessing data stream...", "progress": 8, "time": "16:36:45"}
+{"stage": "Data Validation", "message": "File locked. Detected 14 rows.", "progress": 18, "time": "16:36:45"}
+{"stage": "Preprocessing", "message": "Cleaning empty cells, empty rows, and constant columns...", "progress": 28, "time": "16:36:46"}
+{"stage": "Preprocessing", "message": "Scanning for missing values (Nulls)...", "progress": 35, "time": "16:36:46"}
+{"stage": "Preprocessing", "message": "Analyzing text columns \u2014 Dropping ID-like columns (>60% unique)...", "progress": 38, "time": "16:36:46"}
+{"stage": "Preprocessing", "message": "Applying smart type conversion...", "progress": 48, "time": "16:36:47"}
+{"stage": "Preprocessing", "message": "Auto-encoding categorical columns (smart mode)...", "progress": 62, "time": "16:36:47"}
+{"stage": "Outlier Detection", "message": "Analyzing statistical distribution (IQR / Capping)...", "progress": 75, "time": "16:36:47"}
+{"stage": "Report Generated", "message": "Synthesizing intelligence report...", "progress": 95, "time": "16:36:48"}
+{"stage": "Report Generated", "message": "Complete", "progress": 100, "time": "16:36:59"}
+{"stage": "Report Generated", "message": "Final Intelligence Deployed", "progress": 100, "time": "16:36:59"}
