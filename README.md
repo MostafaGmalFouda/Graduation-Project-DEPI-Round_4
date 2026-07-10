@@ -260,8 +260,7 @@ A retrieval-augmented chat assistant, embedded as a floating widget (`templates/
 | `Phase_6/context/*` | Builds structured context objects (dataset shape, EDA findings, NLP results, trained-model metrics, conversation history) |
 | `Phase_6/rag/document_builder.py` | Turns that context into retrievable text documents |
 | `Phase_6/rag/vector_store.py` | Embeds and indexes those documents (FAISS) |
-| `Phase_6/rag/retriever.py` | Finds the most relevant context for a given question |
-| `Phase_6/rag/chatbot.py` | Ties retrieval + prompt + LLM together into `chatbot.ask(...)` |
+| `Phase_6/rag/chatbot.py` | Ties retrieval (Finds the most relevant context for a given question) + prompt + LLM together into `chatbot.ask(...)` |
 | `Phase_6/rag/llm.py` | Pluggable LLM backend — local Ollama (`llama3.2`, free/offline) or Anthropic Claude (`CHATBOT_LLM=claude` + `ANTHROPIC_API_KEY`) |
 
 See `Phase_6/README.md` for backend-specific setup steps.
