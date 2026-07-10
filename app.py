@@ -1006,7 +1006,6 @@ def pipeline_stream():
     _text_unique_threshold = text_unique_threshold
     _encoding_method = encoding_method
     _outlier_method = outlier_method
-    _original_schema = original_schema
     _zscore_threshold = zscore_threshold
     _outlier_strategy = outlier_strategy
     _chat_ctx = _ctx
@@ -1024,21 +1023,35 @@ def pipeline_stream():
 
             # Step 1 — Exclude user-specified columns
             if _exclude_columns:
-                yield send("Preprocessing", f"Excluding {len(_exclude_columns)} column(s) per configuration...", 25)
+                yield send("Preprocessing", f"Excluding {len(_exclude_columns)} column(s) per configuration...", 22)
                 preprocessor.exclude_columns(_exclude_columns)
                 time.sleep(0.3)
-            
-            # Step 2 — Drop numeric ID columns (e.g. PassengerId)
+
+            # Step 2 — Clean empty strings, empty rows, constant columns
+            # (Phase 1: whitespace-only cells are normalized to real NaN so
+            # handle_nulls() can actually see them, fully-empty rows are
+            # dropped, and zero-information columns are removed before they
+            # ever reach null-handling / encoding. Must run BEFORE
+            # handle_nulls — EDAPipeline.run_pipeline() follows this same
+            # order.)
+            yield send("Preprocessing", "Cleaning empty cells, empty rows, and constant columns...", 28)
+            preprocessor.clean_empty_strings()
+            preprocessor.remove_empty_rows()
+            preprocessor.remove_constant_columns()
+            _chat_ctx.log_eda("Cleaned empty cells/rows and removed constant columns.")
+            time.sleep(0.3)
+
+            # Step 3 — Drop numeric ID columns (e.g. PassengerId)
             # yield send("Preprocessing", "Detecting and dropping numeric ID columns...", 20)
             # preprocessor.drop_id_columns()
             # time.sleep(0.2)
 
-            # Step 3 — Handle nulls
+            # Step 4 — Handle nulls
             yield send("Preprocessing", "Scanning for missing values (Nulls)...", 35)
             preprocessor.handle_nulls(threshold=_null_threshold, fill_strategy=_null_fill_strategy)
             _chat_ctx.log_eda("Handled missing values.")
 
-            # Step 4 — Handle high-cardinality text columns  
+            # Step 5 — Handle high-cardinality text columns
             action_label = {"drop": "Dropping", "hash": "Hashing", "keep": "Keeping"}.get(_text_action, "Dropping")
             yield send(
                 "Preprocessing",
@@ -1051,7 +1064,7 @@ def pipeline_stream():
             )
             time.sleep(0.4)
 
-            # Step 5 — Type conversion
+            # Step 6 — Type conversion
             if _do_type_conversion:
                 yield send("Preprocessing", "Applying smart type conversion...", 48)
                 preprocessor.convert_types()
@@ -1059,12 +1072,12 @@ def pipeline_stream():
             else:
                 yield send("Preprocessing", "Skipping type conversion (disabled)...", 48)
 
-            # Step 6 — Remove duplicates
+            # Step 7 — Remove duplicates
             if _do_remove_duplicates:
                 preprocessor.remove_duplicates()
                 _chat_ctx.log_eda("Removed duplicate rows.")
 
-            # Step 7 — Encoding
+            # Step 8 — Encoding
             if _encoding_method == "none":
                 # USER MODE — smart auto-encoding
                 yield send("Preprocessing", "Auto-encoding categorical columns (smart mode)...", 62)
@@ -1079,7 +1092,12 @@ def pipeline_stream():
             time.sleep(0.4)
 
 
-            # Step 8 — Outlier detection & handling
+            # Step 9 — Outlier detection & handling
+            # NOTE: OutlierHandler.__init__ only accepts `data` — it does
+            # NOT accept an `original_schema` kwarg. Passing one through
+            # here previously would raise TypeError the moment this line
+            # actually ran. Removed to match the real OutlierHandler API
+            # (see DataPreprocessor.handle_outliers docstring).
             method_label = "IQR" if _outlier_method == "iqr" else f"Z-Score (threshold={_zscore_threshold})"
             strategy_label = "Capping" if _outlier_strategy == "cap" else "Removal"
             yield send("Outlier Detection", f"Analyzing statistical distribution ({method_label} / {strategy_label})...", 75)
@@ -1087,18 +1105,18 @@ def pipeline_stream():
                 method=_outlier_method,
                 strategy=_outlier_strategy,
                 zscore_threshold=_zscore_threshold,
-                original_schema=_original_schema
             )
+            _chat_ctx.log_eda("Handled outliers.")
             clean_data = preprocessor.get_clean_data()
             time.sleep(0.6)
             
-            # Step 9 — Generate report
+            # Step 10 — Generate report
             yield send("Report Generated", "Synthesizing intelligence report...", 95)
             out_file = _report_fname
             output_path = os.path.join(REPORTS_FOLDER, out_file)
             ReportGenerator(clean_data).generate_report(mode="detailed", file_name=output_path)
 
-            # Step 10 — Persist clean DF to pre-agreed path
+            # Step 11 — Persist clean DF to pre-agreed path
             # (session was already updated BEFORE the generator started)
             clean_data.to_pickle(_clean_path)
 
@@ -1303,6 +1321,13 @@ def phase2_detect_columns():
 
             # Full preprocessing
             preprocessor = DataPreprocessor(df_raw)
+            # Phase 1: normalize empty/whitespace-only text to NaN, drop
+            # fully-empty rows, and drop zero-information (constant)
+            # columns — must run BEFORE handle_nulls so it can see them.
+            preprocessor.clean_empty_strings()
+            preprocessor.remove_empty_rows()
+            preprocessor.remove_constant_columns()
+            ctx.log_eda("Cleaned empty cells/rows and removed constant columns.")
             preprocessor.handle_nulls()
             ctx.log_eda("Handled missing values.")
             # preprocessor.drop_id_columns()
@@ -1313,8 +1338,11 @@ def phase2_detect_columns():
             ctx.log_eda("Removed duplicate rows.")
             preprocessor.auto_encode()  
             ctx.log_eda("Encoded categorical columns.")
-            
-            preprocessor.handle_outliers(original_schema=original_schema)
+
+            # NOTE: OutlierHandler.__init__ only accepts `data`, not
+            # `original_schema` — dropped from this call to match the real
+            # API (see DataPreprocessor.handle_outliers docstring).
+            preprocessor.handle_outliers()
             clean_data = preprocessor.get_clean_data()
             ctx.log_eda("Handled outliers.")
 
