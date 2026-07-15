@@ -7,10 +7,11 @@
 
 
 ![Python](https://img.shields.io/badge/Python-3.12+-blue?style=flat-square&logo=python)
-![Pandas](https://img.shields.io/badge/Pandas-Data%20Analysis-green?style=flat-square&logo=pandas)
-![Plotly](https://img.shields.io/badge/Plotly-Interactive%20Viz-purple?style=flat-square&logo=plotly)
-![Flask](https://img.shields.io/badge/Flask-Web%20App-black?style=flat-square&logo=flask)
-![Status](https://img.shields.io/badge/Status-Phase%206%20In%20Progress-brightgreen?style=flat-square)
+![Flask](https://img.shields.io/badge/Flask-Web%20Application-black?style=flat-square&logo=flask)
+![Scikit-learn](https://img.shields.io/badge/Scikit--learn-Machine%20Learning-F7931E?style=flat-square&logo=scikitlearn)
+![NLP](https://img.shields.io/badge/NLP-Processing-success?style=flat-square)
+![RAG](https://img.shields.io/badge/RAG-Chatbot-purple?style=flat-square)
+![Status](https://img.shields.io/badge/Status-Project%20Completed-brightgreen?style=flat-square)
 
 </div>
 
