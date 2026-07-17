@@ -6,6 +6,7 @@ import json
 import time
 import uuid
 import pickle
+from dotenv import load_dotenv
 from datetime import datetime, timezone
 import pandas as pd
 from werkzeug.utils import secure_filename
@@ -29,6 +30,8 @@ from Phase_6.context.context_manager import new_context_filename
 from Phase_6.rag.document_builder import build_documents
 from Phase_6.rag.chatbot import Chatbot
 from Phase_6.rag.vector_store import VectorStore
+
+load_dotenv()
 
 # Import Phase_3 NLP
 from Phase_3_NLP.NLPAnalyzer import NLPAnalyzer

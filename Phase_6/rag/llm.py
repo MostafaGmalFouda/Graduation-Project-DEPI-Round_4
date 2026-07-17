@@ -1,6 +1,6 @@
 import os
 import requests
-
+import google.generativeai as genai
 
 LLM_TEMPERATURE = 0.1  # low = grounded/repeatable, not creative. Same value for every backend.
 
@@ -74,17 +74,71 @@ class ClaudeLLM:
         data = response.json()
         return "".join(block.get("text", "") for block in data.get("content", []))
 
+class GeminiLLM:
+
+    def __init__(self, model=None):
+        self.api_key = os.environ.get("GEMINI_API_KEY")
+
+        if not self.api_key:
+            raise RuntimeError("GEMINI_API_KEY is not set.")
+
+        genai.configure(api_key=self.api_key)
+
+        self.model = genai.GenerativeModel(
+        model or os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")   
+                  )
+
+    def generate(self, system: str, user: str) -> str:
+
+        prompt = f"""
+{system}
+
+{user}
+"""
+
+        try:
+             response = self.model.generate_content(
+        prompt,
+        generation_config={
+            "temperature": LLM_TEMPERATURE
+        }
+    )
+             return response.text
+
+        except Exception as e:
+                raise RuntimeError(f"Gemini API Error: {e}")
 
 def get_llm():
     """
-    Picks which LLM backend the chatbot uses.
+   Picks which LLM backend the chatbot uses.
 
-    Default: LocalLLM (free, local Ollama, no setup needed).
-    To switch to Claude for noticeably better answers:
-        export CHATBOT_LLM=claude
-        export ANTHROPIC_API_KEY=sk-ant-...
+    Available backends:
+
+    - local   -> Ollama
+    - claude  -> Anthropic Claude
+    - gemini  -> Google Gemini
+
+    Set:
+
+    CHATBOT_LLM=local
+    CHATBOT_LLM=claude
+    CHATBOT_LLM=gemini
+
     """
+
     backend = os.environ.get("CHATBOT_LLM", "local").lower()
+    print(f"Using LLM backend: {backend}")
+
     if backend == "claude":
         return ClaudeLLM()
-    return LocalLLM()
+
+    elif backend == "gemini":
+        return GeminiLLM()
+
+    elif backend == "local":
+        return LocalLLM()
+
+    else:
+        raise RuntimeError(
+            f"Unknown LLM backend: {backend}"
+        )
